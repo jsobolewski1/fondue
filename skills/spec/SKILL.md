@@ -4,7 +4,7 @@ description: "Specification-driven multi-model software development protocol. Us
 license: MIT
 metadata:
   owner: "Jakub Sobolewski"
-  version: 7
+  version: 8
   status: "living doc — update in place when the workflow changes"
 ---
 
@@ -58,10 +58,12 @@ fondue/specs/
 ```
 
 ## Stages
-The spec starts as the engine's Starting a spec says, with first state `brief`.
+The spec starts as the engine's Starting a spec says, with first state `brief`. Its start questions:
+* **before the roster, Mode:** `full`, the default, or `light`, for a spec whose design is settled and whose work is mechanical (see Light mode). It goes into the brief's `Mode:` line, and the User may change it until sign-off.
+* **after the roster, Sessions:** `fresh`, the default, or `continue` (see implementation and roster.md).
 
 ### brief
-User writes `pre-plan/00-brief.md`, the spec's starting document, alone or with any AI help they choose. The stage ends when the User tells the Arbiter the brief is signed off. The Arbiter commits and sets `pre-plan:Draft`.
+User writes `pre-plan/00-brief.md`, the spec's starting document: alone, with the Arbiter in one of the ways the engine's Starting a spec offers, or with any other AI help they choose. The stage ends when the User tells the Arbiter the brief is signed off. The Arbiter commits and sets `pre-plan:Draft`.
 
 At sign-off the Arbiter checks one thing: **a light brief has no open question** except ones marked `(technical)`. That is a mechanical check, not a judgement: the Arbiter tells the User when it fails, and the User changes the mode or the brief. Why: an open question that shapes the approach means the design is not settled, and light mode gives the approach and the tasks a single review, which would then be spent settling the design.
 
@@ -167,7 +169,7 @@ R = reads, W = writes (and reads). A role reads nothing in the spec that this ta
 | `current-state.txt`, `roster.md`, `99-user.md` | W | R | R | R | R | R |
 | `stats.md` | W | | | | | |
 | `landed.md` | W | R, after a reopen | | | | R, first line |
-| `pre-plan/00-brief.md` (User writes) | R at sign-off; W an amendment | R | R | | | |
+| `pre-plan/00-brief.md` (User writes) | W the template and a draft the User asks for (engine: Starting a spec); R at sign-off; W an amendment | R | R | | | |
 | `pre-plan/01-research.md` | | W | R | | | |
 | `pre-plan/02-reviewer-research.md` | | R | W | | | |
 | `pre-plan/NN-draft.md` | | W | R | | | |
@@ -201,7 +203,7 @@ attempt-<NN> phase-<NN> closed at <sha>
 `<sha>` is `git rev-parse HEAD` when the line is written. It is a command the Arbiter runs, not an artifact it reads. `attempt-<NN>` is the number the live attempt would take in `attempts/`: one more than the highest there, or `01` if there is none.
 
 ### pre-plan/00-brief.md
-Written and signed off by the User. It states what the spec must deliver, everything known that matters, and what is still open. A good brief leaves the Architect knowing the goal and what research the approach needs. Its open questions are the ones whose answer shapes the approach. A technical question may be listed too, marked `(technical)`, and the draft passes it to the phase that answers it.
+Written and signed off by the User; the Arbiter writes its template, and a draft when the User asks (engine: Starting a spec). It states what the spec must deliver, everything known that matters, and what is still open. A good brief leaves the Architect knowing the goal and what research the approach needs. Its open questions are the ones whose answer shapes the approach. A technical question may be listed too, marked `(technical)`, and the draft passes it to the phase that answers it.
 ```
 # <spec title>
 Mode: full | light

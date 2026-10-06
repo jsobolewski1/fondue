@@ -4,7 +4,7 @@ description: "Bug-hunting sibling of spec: two actors, a Hunter and a Reviewer, 
 license: MIT
 metadata:
   owner: "Jakub Sobolewski"
-  version: 5
+  version: 6
   status: "young - run end to end on one real bug so far; update in place as runs teach us"
 ---
 
@@ -61,7 +61,8 @@ fondue/bugs/
 The spec starts as the engine's Starting a spec says, with first state `report`.
 
 ### report
-The User writes `report.md`, the bug's starting document, alone or with AI help. The stage ends
+The User writes `report.md`, the bug's starting document: alone, with the Arbiter in one of the ways the
+engine's Starting a spec offers, or with any other AI help. The stage ends
 when the User signs it off. The Arbiter commits and sets `hunt:Draft`.
 
 ### hunt
@@ -138,7 +139,7 @@ R = reads, W = writes (and reads). A role reads nothing in the spec that this ta
 |---|---|---|---|
 | `current-state.txt`, `roster.md`, `99-user.md` | W | R | R |
 | `stats.md` | W | | |
-| `report.md` (User writes) | | R | R |
+| `report.md` (User writes) | W the template and a draft the User asks for (engine: Starting a spec) | R | R |
 | `hunt/NN-diagnosis.md` | | W | R |
 | `review/hunt/`, `review/fix/` | | W request, answers | W reviews |
 | code | | W | R, and runs the red/green check |
@@ -165,7 +166,8 @@ check the fix against it.
 ## Artifacts
 
 ### report.md
-Written and signed off by the User.
+Written and signed off by the User; the Arbiter writes its template, and a draft when the User asks
+(engine: Starting a spec).
 ```
 # <bug title>
 

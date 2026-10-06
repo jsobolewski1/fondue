@@ -47,10 +47,43 @@ fondue/<kind>/
 `fondue/<kind>/archive/` is history, never current truth.
 
 ## Starting a spec
-The User opens a session, loads a process skill and asks it to start a spec. That session is the Arbiter. In this order, it:
-1. reads `integrations/agents/contract.md` at the plugin root. If the User's agents were never set up, it runs the first-run setup that file describes.
-2. fixes the roster with the User: agent, model, effort and skills for each role. The Arbiter's own row records the model and effort it runs on. A session cannot see its own effort, so the Arbiter asks the User rather than guessing.
-3. creates the spec folder with the process skill's layout, writes `roster.md`, and writes the process skill's first state into `current-state.txt`. `99-user.md` and `stats.md` are appended to, and are created on their first entry, `stats.md` with its table header.
+The User opens a session and loads a process skill. That session is the Arbiter. It walks the User through the start, and asks only what the User has not already said: in the opening message, or in an earlier answer that settles a later question too, e.g. "opus at high for every role". It asks **one question at a time**, with the default as the first option. It uses the AskUserQuestion tool when the session has one; when the choices outnumber what the tool takes, it lists them in text and takes a free answer. An option is a whole answer, e.g. a complete roster row, so most questions take one pick. Why one at a time: a block of questions gets skimmed, and the roster is where a careless answer costs the most, on every turn of the spec.
+
+**The most recent spec** of this kind is the one with the highest number when the folders are numbered, `archive/` included. Otherwise it is the one whose `roster.md` git last committed. A project with no spec of this kind has none, and every default that would come from it falls away.
+
+In this order, it:
+1. **Continue or start.** When the User neither names a spec nor asks for a new one, and specs of this kind are in progress (any `fondue/<kind>/*/` outside `archive/`), it lists them with the state each is in, and asks whether to continue one or start a new one. With none in progress it starts a new one without asking. To continue a spec, it skips the steps below, except as this list says:
+   - **step 2** runs for every adapter the roster names.
+   - **The Arbiter row** gets this session's model, and the effort the User gives when asked.
+   - **Handles.** Every `agent <id>` Handle cell goes to `-`, because a Claude role died with the session that spawned it, and each such role is spawned anew before its next turn. An adapter's session outlives the Arbiter, so its handle stays.
+   - **Anything pending is settled first.** Before sending any turn, it reads the last `stats.md` row and checks for `question.md` and `reopen.md`. A CONFLICT, QUESTION or BLOCKED with no ruling after it in `99-user.md` goes to the User, as On every reply says.
+   - **A turn that was in flight** on an adapter may have finished. Its Reply location is read, and a reply found there is handled under On every reply.
+   - **A spec still in its first state** gets step 9, unless its starting document is already signed off.
+2. **Agents.** It reads `integrations/agents/contract.md` at the plugin root. If the User's agents were never set up, it runs the first-run setup that file describes.
+3. **Name.** It asks for the spec's title, and proposes the folder name. When any spec folder of this kind begins with a number, `archive/` included, the name is `<NNN>-<slug>`, one above the highest; otherwise it is `<slug>`. The slug is a few lowercase words of the title joined by `-`. The User may change it. A name taken by any spec of this kind, archived ones included, is refused, because `done` moves the folder into `archive/`.
+4. **The process skill's questions before the roster**, if it has any.
+5. **The roster, role by role**: the Arbiter first, then the roles in the order the process skill lists them. Each role gets one question, for its agent, model and effort. The options are, in order:
+   - the process skill's default for the role;
+   - the role's row in the most recent spec, if it differs;
+   - a row on each agent registered in `~/.config/fondue/integrations/agents/`.
+
+   When the process skill has no default, the first option is the Arbiter's own model at `high`. When there is only one option, "Other" is the second. For the Arbiter's own row, the model is the session's own, and only the effort is asked: a session cannot see its own effort. A role on an adapter then gets the questions its adapter asks at roster time (Agent settings).
+6. **Skills.** It lists the project's skills, `.claude/skills/*/SKILL.md`, and the User's, `~/.claude/skills/*/SKILL.md`, each with its description. It asks which ones every role loads, then whether any role loads more. The most recent spec's Skills section is the default. The path of every chosen skill is recorded next to its name (Starting a role).
+7. **The process skill's questions after the roster**, if it has any.
+8. **Confirm.** It shows the folder name, the answers to the process skill's questions, and `roster.md` as it will be written. A change goes back to that one question. On the User's yes, it:
+   - creates the spec folder with the process skill's layout;
+   - writes `roster.md`;
+   - writes the starting document's template, filled with the title and the answers it takes. That keeps them on disk, however the document is drafted;
+   - writes the process skill's first state into `current-state.txt`.
+
+   `99-user.md` and `stats.md` are appended to, and are created on their first entry, `stats.md` with its table header.
+9. **The starting document.** It asks how the User wants to draft it. Whichever way is chosen, the document is the User's: they edit it, and only they sign it off.
+   - **Myself.** It waits for the sign-off.
+   - **Interview me.** It asks for the template's sections one at a time. It writes the User's answers in their words, then shows the whole document for edits.
+   - **From a source.** The User points to notes, an issue, a document or this conversation. It drafts from that source and the answers already given, nothing else.
+   - **With research.** It reads the code, the knowledge base and the sources the User names. It writes only FACTs about what exists, with their anchors, under the template's context or evidence. This is its research for the User (Roles every process has): what it finds reaches the roles only through the document the User signs.
+
+   In every way, the Arbiter's own words are limited to restating the source and recording what exists. The goal, the scope, any decision, any permission and anything marked for the process skill's checks are the User's words. It proposes no approach. What the source leaves open goes under the template's open section, unmarked, and the User adds any mark a process skill defines. Why: a starting document the Arbiter shaped would steer every role while carrying the User's signature. And the sign-off checks a process skill runs on it would test the Arbiter's own judgement.
 
 The User starts only the Arbiter. The Arbiter spawns every other role.
 
@@ -309,7 +342,7 @@ Load the fondue:<process skill> skill. Your role is <role>. Spec: <path to spec 
 ```
 The role loads the process skill, this file, and the skills `roster.md` gives it, then takes the turn like any other.
 
-**On another agent**, the role is started and sent its turns through its adapter's Start and Turn, as `integrations/agents/contract.md` says. Its prompt names each skill by path, `Read <skill dir>/SKILL.md and follow it as the <name> skill.`, because no other agent can load a Claude Code plugin's skills. The Arbiter knows the directory of each fondue skill, since they sit together under the plugin's `skills/`. It does not know where a project or User skill in the roster lives, so it asks the User once and records the path in the roster's Skills section.
+**On another agent**, the role is started and sent its turns through its adapter's Start and Turn, as `integrations/agents/contract.md` says. Its prompt names each skill by path, `Read <skill dir>/SKILL.md and follow it as the <name> skill.`, because no other agent can load a Claude Code plugin's skills. The Arbiter knows the directory of each fondue skill, since they sit together under the plugin's `skills/`. It records the path of each project or User skill when it fixes the roster (Starting a spec, step 6), and asks the User only for a skill outside those folders.
 
 ### A turn
 ```
@@ -369,7 +402,8 @@ Landed work is kept, or reverted outside the spec by the User or by someone the 
 A project may keep its specs out of git. If `git check-ignore -q fondue/<kind>/<spec>/` succeeds, the Arbiter makes none of the spec commits. The check is on the spec folder, because a project may ignore one kind, e.g. `fondue/bugs/`, and still commit the rest of `fondue/`. Code commits are unchanged either way. No part of the process may depend on a spec commit.
 
 ## Hooks: what a process skill defines
-* its **kind**: the folder under `fondue/` its specs live in, and its **starting document**
+* its **kind**: the folder under `fondue/` its specs live in, and its **starting document** with its template
+* its **start questions**, asked before and after the roster (Starting a spec), and its **default roster**, if it has one
 * its **stages**, in order: the first state written at start, which stages carry a qualifier and a Step, and the stage whose end leads to `done`
 * its **roles**: what each does, how long each session lives, when a role gets a fresh session, and who reads and writes each of its artifacts
 * its **folder layout** beyond the spec folder above, and its artifacts

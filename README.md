@@ -36,8 +36,11 @@ every role dips in with a session of its own, on whichever agent you seat. And o
 ```
 
 1. **Restart Claude Code.** Agent types load at session start.
-2. **Open your project** and run `/fondue:spec start a spec called <name>`.
-3. **Write the brief** when the Arbiter asks for it, and lead the team from there.
+2. **Open your project** and run `/fondue:spec`. The Arbiter walks you through the start, one
+   question at a time: the title, the mode, the team role by role, and the skills each role loads.
+   Anything your command already says, it doesn't ask.
+3. **Draft the brief** your way: write it yourself, let the Arbiter interview you, draft it from your
+   notes, or have it research the code first. Sign it off, and lead the team from there.
 
 For a bug, use `/fondue:hunt` instead. To give every role a map of your codebase first, run
 `/fondue:kb-init` once (see Knowledge base below). To try a local checkout without installing:
@@ -262,9 +265,7 @@ Most of the volume is cache reads, which bill at a fraction of fresh input. Ever
 
 What comes next, in the order it's coming.
 
-1. 🔥 **On the stove: a guided kick-off.** A wizard that walks you through starting a spec, step
-   by step, instead of one command and a blank brief.
-2. 🔪 **Prepping: `bootstrap`.** A skill that sets up what a repository needs before its first spec,
+1. 🔥 **On the stove: `bootstrap`.** A skill that sets up what a repository needs before its first spec,
    where it's missing: an `AGENTS.md`, and essential project skills for the architect, the coder
    and QA. Every role then has project rules to load from day one.
 
