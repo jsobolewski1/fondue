@@ -26,6 +26,7 @@ Every term below is used in this meaning only. A process skill adds its own term
 * **Starting document** - what the User writes and signs off for the process to start from, e.g. a brief or a bug report. The process skill names it.
 * **Advisor** - a read-only session the Arbiter spawns when the User asks, to give the User a second opinion (see Advisors). It is not a role: it takes no turn and writes nothing in the spec.
 * **FACT** - a claim with its source stated. **RESULT** - a claim with the command that was run and its output.
+* **Knowledge base** - the project's map of what its code already has, in `fondue/kb/` (see Knowledge base). **Card** - its page for one module.
 
 ## The spec folder
 ```
@@ -135,6 +136,8 @@ For a Claude role, the last two cells are the output of `turn-stats.py` next to 
 
 For a role on another agent, they are the output of its adapter's Stats, or `- | -` if the adapter has none. It is not comparable with a Claude row.
 
+`kb.py write` (Knowledge base) makes model calls that no role's transcript holds. After every reply to a turn the process skill says may run it, the Arbiter runs `kb.py usage --since <the time it sent that turn>` and adds one more row: the Role `KB writer`, as Model the `model:` it prints, the same State, the Result `cards written`, Counts `-`, as Tokens its last line, and Time `-`. It adds no row when it prints `calls: 0`.
+
 Never take token numbers from the role itself: a session cannot count its own tokens.
 
 ## Research
@@ -144,8 +147,16 @@ A claim about **a mechanism the spec does not control** must be a RESULT, e.g. h
 
 Once a FACT is recorded, no other role researches the same question again. A RESULT may be re-run if it is non-deterministic or expected to have changed.
 
+## Knowledge base
+A project may have a knowledge base at `fondue/kb/`, made by the `kb-init` skill: `index.md`, one entry per module and every project skill, and `cards/<module>.md`, what a module offers, where a new thing plugs in, and what not to rebuild. The process skill says which role reads it, and when. A role that reads it:
+* **reads `index.md` whole**, then the cards it needs: the modules its work touches, and every module whose entry matches a capability its work needs. Why whole: you cannot search for something you do not know exists.
+* **treats a card as where to look, never as a source.** A FACT cites the code a card pointed to, never the card. A card that the code contradicts is out of date, not evidence.
+* **skips all of this when `fondue/kb/index.md` does not exist.** Nothing in a process depends on the knowledge base being there.
+
+Who writes it, and how, is in `protocol/kb.md` next to this file. A role that only reads it does not read that file. Its tool, `kb.py`, is `python3 <plugin root>/protocol/kb/kb.py`, run from the project root; from this file it is `kb/kb.py`. `kb.py status` spends no tokens.
+
 ## Code turns
-A role that writes code commits it during its turns and never stages `fondue/`. It runs the full build with tests at the end of **every** turn that changed code, Draft and Answer alike. A turn is not DONE until the build is green with all tests passing. An answer that only challenges or declines changes no code and reports the last green build.
+A role that writes code commits it during its turns and never stages `fondue/`, except `fondue/kb/` (Knowledge base). It runs the full build with tests at the end of **every** turn that changed code, Draft and Answer alike. A turn is not DONE until the build is green with all tests passing. An answer that only challenges or declines changes no code and reports the last green build.
 
 That run is the only build of the topic: the request and every answer report it, and it is trusted as reported. A gate that the build does not run, such as a live check, is run on the same turns and reported the same way.
 
@@ -335,7 +346,7 @@ The Arbiter does these in order, every time, and nothing else:
 1. append the turn's line to `stats.md`
 2. on DONE, write the next state (Transitions) into `current-state.txt`
 3. do what the process skill attaches to that transition, if anything, and commit `fondue/<kind>/<spec>/` if the transition is one of its commit points (see Commits); otherwise do not commit
-4. send `Your turn.` to the role the new state names: by the handle in `roster.md` if it has one and the process skill calls for no fresh session, otherwise spawn it (Starting a role)
+4. send `Your turn.` to the role the new state names: by the handle in `roster.md` if it has one and the process skill calls for no fresh session, otherwise spawn it (Starting a role). For a turn that may run `kb.py write` (stats.md), it first notes the time as `date +%Y-%m-%dT%H:%M:%S` prints it
 
 A reply whose `<state>` is not the state the Arbiter wrote is not a reply to this turn: the Arbiter skips steps 1-3 and sends `Your turn.` once more. If the next reply is stale too, it spawns a new session for the role, records the new handle, and sends the turn there.
 
@@ -352,8 +363,8 @@ The end of a spec that will not deliver its goal. The User may abandon a spec in
 Landed work is kept, or reverted outside the spec by the User or by someone the User names. A revert is not reviewed: nobody will build on it. The Arbiter waits until the User says the revert is done. Then, in the order of `done`, it writes `abandoned` into `current-state.txt`, moves the spec to `fondue/<kind>/archive/<spec>/` and commits. The archived state must read `abandoned`. Why a state of its own: an archived spec that reads `done` tells every later reader that its goal was delivered.
 
 ## Commits
-* **A role that writes code** commits it during its turns and never stages `fondue/`.
-* **Arbiter** commits `fondue/<kind>/<spec>/` at the commit points the process skill names, and once more at `done` or `abandoned`, after the move to the archive. Work the process skill gives it after the last review, e.g. a handover document, it commits on its own, never with `fondue/`.
+* **A role that writes code** commits it during its turns and never stages `fondue/`, except `fondue/kb/`, which is project documentation, not a spec.
+* **Arbiter** commits `fondue/<kind>/<spec>/` at the commit points the process skill names, and once more at `done` or `abandoned`, after the move to the archive. Work the process skill gives it after the last review, e.g. a handover document, it commits on its own, never with a spec folder.
 
 A project may keep its specs out of git. If `git check-ignore -q fondue/<kind>/<spec>/` succeeds, the Arbiter makes none of the spec commits. The check is on the spec folder, because a project may ignore one kind, e.g. `fondue/bugs/`, and still commit the rest of `fondue/`. Code commits are unchanged either way. No part of the process may depend on a spec commit.
 

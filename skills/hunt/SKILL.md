@@ -4,7 +4,7 @@ description: "Bug-hunting sibling of spec: two actors, a Hunter and a Reviewer, 
 license: MIT
 metadata:
   owner: "Jakub Sobolewski"
-  version: 4
+  version: 5
   status: "young - run end to end on one real bug so far; update in place as runs teach us"
 ---
 
@@ -65,8 +65,9 @@ The User writes `report.md`, the bug's starting document, alone or with AI help.
 when the User signs it off. The Arbiter commits and sets `hunt:Draft`.
 
 ### hunt
-The Hunter reproduces the bug, localizes it, finds the root cause, writes `hunt/01-diagnosis.md` and
-opens `review/hunt/`. Every accepted fix to a diagnosis goes into a new diagnosis file with the next
+The Hunter reads the knowledge base (engine: Knowledge base) to find its way into the code, then
+reproduces the bug, localizes it, finds the root cause, writes `hunt/01-diagnosis.md` and opens
+`review/hunt/`. Every accepted fix to a diagnosis goes into a new diagnosis file with the next
 free number. Diagnosis files are never edited.
 
 The Hunter may commit **diagnostic code** - counters, logs, probes - and change the environments
@@ -92,7 +93,13 @@ the full build green and all tests passing. The red commit is the only commit al
 only at the check it adds.
 
 The Hunter also updates any project documentation the bug proved wrong or missing, e.g. a gotcha in a
-feature skill. There is no handover stage.
+feature skill. When the project has a knowledge base, it brings that up to date too (`protocol/kb.md`).
+`<sha>` is the commit the bug's code changes start from: the parent of the first diagnostic commit the
+fix keeps, or of the red commit if it keeps none. The Hunter runs `kb.py write --since <sha>`, then
+`kb.py status --since <sha>` until it reads `clean`, and checks against the fix the project skills
+`kb.py touched <sha>` lists. The documents are committed on their own, after the fix. When
+`fondue/kb/` is ignored, no card is staged and the request names the changed cards as files. There is
+no handover stage.
 
 The stage closes on verdict `approved` or `closed`, and the next state is `done`.
 
@@ -121,6 +128,8 @@ User needs to hear about.
 ### What the Arbiter does on a transition
 * **Fresh sessions.** None. Each role is spawned once, before its first turn.
 * **Commit points.** When the report is signed off and when the hunt closes.
+* **The writer's tokens.** `fix:Draft` and `fix:Answer` may run `kb.py write`, so their replies get the
+  engine's `KB writer` row (engine: stats.md).
 
 ## Who reads and writes what
 R = reads, W = writes (and reads). A role reads nothing in the spec that this table does not give it.
@@ -133,6 +142,7 @@ R = reads, W = writes (and reads). A role reads nothing in the spec that this ta
 | `hunt/NN-diagnosis.md` | | W | R |
 | `review/hunt/`, `review/fix/` | | W request, answers | W reviews |
 | code | | W | R, and runs the red/green check |
+| `fondue/kb/` (project, engine: Knowledge base) | | W | R |
 | `question.md` | moves into a ruling | W | |
 | `advice/` | W | | |
 
@@ -224,6 +234,7 @@ result from before the fix too.
 - **Build:** <command> - green, <n> tests passed
 - **Live:** <run> - before <result>, after <result>      (only when report.md's Fixed means asks for it)
 - **Diagnostic commits:** <sha> kept (<why>) | <sha> reverted in <sha>
+- **KB:** kb.py status --since <sha> - clean                 (only when the project has a knowledge base)
 ```
 
 The hunt's closing verdict carries the outcome, e.g. `Verdict: approved hunt/02-diagnosis.md | exit`.
@@ -237,7 +248,7 @@ The engine's A turn, with this table:
 | `hunt:Draft` | Hunter | `hunt/` | reproduce, localize, root-cause, write `01-diagnosis.md`, open `review/hunt/` |
 | `hunt:Review` | Reviewer | `review/hunt/` | review the diagnosis the newest file names for soundness |
 | `hunt:Answer` | Hunter | `review/hunt/` | answer every finding; a new diagnosis file if any fix was accepted |
-| `fix:Draft` | Hunter | `review/hunt/` | red commit, fix, build green, docs, open `review/fix/` |
+| `fix:Draft` | Hunter | `review/hunt/` | red commit, fix, build green, docs and knowledge base, open `review/fix/` |
 | `fix:Review` | Reviewer | `review/fix/` | review the commit range the newest file names; run the red/green check only |
 | `fix:Answer` | Hunter | `review/fix/` | fix what was accepted, commit, build green, answer |
 
@@ -256,11 +267,11 @@ A finding is a Blocker when:
 Anything else is a Nit.
 
 ### Reviewing a fix
-The Reviewer runs **exactly two commands**, in place of the engine's one targeted command: the
+The Reviewer runs **exactly two commands**, and `kb.py status`, in place of the engine's one targeted command: the
 regression check at the red commit, where it must fail, and at the head of the range, where it must
 pass. They never rerun the build or the suite, which is trusted as reported. Why: for a feature, the
 build is the author's evidence. Here the red and green of one check are the evidence of the fix
-itself, and they are cheap to run.
+itself, and they are cheap to run. `kb.py status` spends no tokens.
 
 A finding is a Blocker when:
 * the check does not fail at the red commit, or fails for a reason other than the diagnosed cause
@@ -268,6 +279,7 @@ A finding is a Blocker when:
 * the fix treats the symptom, not the cause, e.g. a retry, a longer deadline or a swallowed error
   that hides the loss, unless the approved diagnosis showed a residual loss is inherent
 * a diagnostic commit is neither kept with a reason nor reverted
+* a card or a skill says something the fix made untrue, or `kb.py status --since <sha>` is not `clean`
 * a live check that `report.md` asks for is missing, or its sample is too small (see The fix gate)
 * the change is wrong, introduces a problem of its own, or breaks the project's rules
 

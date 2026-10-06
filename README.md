@@ -39,7 +39,8 @@ every role dips in with a session of its own, on whichever agent you seat. And o
 2. **Open your project** and run `/fondue:spec start a spec called <name>`.
 3. **Write the brief** when the Arbiter asks for it, and lead the team from there.
 
-For a bug, use `/fondue:hunt` instead. To try a local checkout without installing:
+For a bug, use `/fondue:hunt` instead. To give every role a map of your codebase first, run
+`/fondue:kb-init` once (see Knowledge base below). To try a local checkout without installing:
 `claude --plugin-dir /path/to/fondue`.
 
 ## ✨ What makes it different
@@ -55,7 +56,11 @@ happens between them.**
   output. Claims about libraries and tools are **run, not read**.
 - ⚖️ **A neutral Arbiter.** The session you talk to runs the process and never rules on the work, so
   no author writes the prompt for its own reviewer. It reads the work only when you ask, and what it
-  finds reaches the team only through your rulings. Once every review has closed, it writes the handover.
+  finds reaches the team only through your rulings. Once every review has closed, it writes any handover document you ask for.
+- 🗺️ **Reshape before you add.** Before designing, the Architect lists what the code already has
+  for each part of the goal, and whether the plan reuses it, reshapes it or adds something new.
+  "New" needs a reason. A **knowledge base** of your modules makes that search cheap, and every spec
+  keeps it current.
 - 🔁 **Plans are allowed to fail.** A broken approach reopens as a new attempt, which must show that
   it doesn't rest on the assumption that broke.
 - 📊 **Every turn's cost is on the record.** Tokens and minutes, per turn and per role.
@@ -72,6 +77,7 @@ fondue is young. Here's what it has actually run:
 | ✅ **hunt** | 1 bug to a verified fix |
 | ✅ **Mixed vendors** | Codex has held the Architecture Reviewer seat in real specs, through an earlier setup |
 | ✅ **First-run agent setup** | Dry-run against Codex |
+| 🧪 **Knowledge base** | Piloted on one 33-module Java project; not yet run inside a spec |
 
 Earlier specs ran on earlier versions of the protocol. **Issues and war stories are welcome.**
 
@@ -79,7 +85,8 @@ Earlier specs ran on earlier versions of the protocol. **Issues and war stories 
 
 - **Claude Code** with the `SendMessage` tool. The Arbiter uses it to send each role its next turn,
   so a permission rule that denies it breaks the process. Tested on v2.1.284.
-- **git** and **Python 3**. Python runs the per-turn stats scripts.
+- **git** and **Python 3**. Python runs the per-turn stats scripts and the knowledge base's tooling.
+- **The `claude` CLI** on the `PATH`, for the knowledge base: each card is one `claude -p` call.
 - **Optional:** the command-line tool of any other agent you want in the team, installed and signed
   in, e.g. OpenAI's `codex`.
 
@@ -92,11 +99,12 @@ Earlier specs ran on earlier versions of the protocol. **Issues and war stories 
 | Role | What they do | Lives for |
 |---|---|---|
 | **You** | Write the brief, pick the team, rule on disagreements and questions | the whole spec |
-| **Arbiter** | Spawns roles, sends turns, keeps state, researches for you on request, writes the handover. Never rules on the work | the whole spec |
+| **Arbiter** | Spawns roles, sends turns, keeps state, researches for you on request, writes any further handover document. Never rules on the work | the whole spec |
 | **Architect** | Researches, drafts the approach, then the technical plan | one attempt |
-| **Architecture Reviewer** | Reviews both, after designing their own approach first | one attempt |
+| **Architecture Reviewer** | Reviews both, after designing their own approach first. A new one reviews the handover update | one attempt |
 | **Coder** | Implements one phase, leaving the build green on every turn | one phase, or all of them with `Sessions: continue` |
 | **Code Reviewer** | Checks the change against the plan and your project's rules | as long as the Coder |
+| **Handover Writer** | Brings the knowledge base and your project skills up to date with what the spec changed | handover |
 
 - **Two planning stages.** *Pre-plan* settles the **approach**: the decisions that shape it, the
   alternatives rejected, and the phases with their gates. *Plan* settles the **technical
@@ -110,6 +118,9 @@ Earlier specs ran on earlier versions of the protocol. **Issues and war stories 
   is set aside, and you sign a new brief. A fresh Architect and Reviewer then read **what the old
   plan was and what broke it**. Work already committed is kept, amended or reverted, phase by phase.
 - **Abandoning.** A spec that won't deliver can be stopped, and its archive says so.
+- **Handover updates the docs.** After the last phase, the Handover Writer rewrites the knowledge
+  base cards and the project skills that the spec made wrong, and a reviewer checks them against the
+  code. Docs that steer every later spec don't get to drift.
 
 ## 🐞 How hunt works
 
@@ -128,6 +139,27 @@ distributed, load-dependent. A bug with a stack trace and an obvious fix doesn't
   then turns it green.
 - 📈 **Rate-based bugs:** the run after the fix must be big enough that the old rate would have
   produced **at least 5 failures**, and it must show none.
+
+## 🗺️ Knowledge base
+
+AI sessions on a big codebase fail in familiar ways: they rebuild what exists under another name,
+and treat existing code as untouchable and build around it. The knowledge base is a map that roles
+read before they design:
+
+- `fondue/kb/index.md`: one entry per module, saying what it offers, with other names for the same
+  thing, plus every project skill. Small enough to read whole, about 5k tokens for 30-40 modules.
+- `fondue/kb/cards/<module>.md`: what a module offers, **where a new thing plugs in** (down to the
+  file that wires it), and what not to rebuild. What and where only. Why and how stay in your skills.
+
+`/fondue:kb-init` builds it. A script does all the crawling: declarations without method bodies,
+the places other modules construct a module's types, wiring files. The model then writes each card
+in **one call with no tools**, so no agent wanders the code with a growing context. On a 33-module
+Java project, every card together cost about **$1.7 on Sonnet**, and the skill shows you its
+estimate before spending anything. After that, each spec's handover and each hunt's fix update the
+cards they touched. `kb.py status` checks every card against the code for free.
+
+For now it reads Java and `.proto` files in Maven and Gradle projects. The why behind it is in
+[`skills/kb-init/design-notes.md`](skills/kb-init/design-notes.md).
 
 ## ⚖️ The rules every review follows
 
@@ -192,7 +224,7 @@ fondue/specs/017-<name>/        (a real spec, at done)
   review/    pre-plan/  plan/  phase-01/ … phase-04/     00-request.md  01-review.md  02-answer.md …
 ```
 
-- Bugs live in `fondue/bugs/<bug>/`.
+- Bugs live in `fondue/bugs/<bug>/`, and the knowledge base in `fondue/kb/`.
 - Finished work is archived under `fondue/specs/archive/` and `fondue/bugs/archive/`.
 - **Don't want it in git?** Ignore `fondue/`. The process detects that and skips its own commits.
 
