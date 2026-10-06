@@ -42,14 +42,14 @@ WRITER_OVERHEAD = 1800    # system prompt and harness per call, in tokens
 WRITER_OUTPUT = 1500      # tokens a card takes to write
 PARALLEL = 6
 
-ROOT = KB = CARDS = PACKS = RUNS = None
+ROOT = KB = CARDS = PACKS = RUNS = PARTS = None
 
 
 def set_root(root):
-    global ROOT, KB, CARDS, PACKS, RUNS
+    global ROOT, KB, CARDS, PACKS, RUNS, PARTS
     ROOT = Path(root).resolve()
     KB = ROOT / "fondue" / "kb"
-    CARDS, PACKS, RUNS = KB / "cards", KB / ".packs", KB / ".runs"
+    CARDS, PACKS, RUNS, PARTS = KB / "cards", KB / ".packs", KB / ".runs", KB / "parts.txt"
 
 
 def git(*args):
@@ -63,9 +63,15 @@ def read(path):
 # ---------- modules ----------
 
 class Module:
-    def __init__(self, path, mid, deps, sources):
-        self.path, self.id, self.deps, self.sources = path, mid, deps, sources
-        self.dependents = []
+    """A card's unit: a build module, or a part of one that parts.txt gives its own card.
+    `main` is the directory whose changes count against the card, `build` the directory of the build file,
+    `artifact` the name other build files depend on it by. A part shares its module's build and artifact."""
+    def __init__(self, path, mid, deps, sources, artifact, main=None, build=None, parent=None):
+        self.path, self.id, self.deps, self.sources, self.artifact = path, mid, deps, sources, artifact
+        self.main = main or path / "src" / "main"
+        self.build = build or path
+        self.parent = parent
+        self.parts, self.dependents, self.excluded, self.siblings_used = [], [], [], []
 
 
 def pom_info(pom):
@@ -90,12 +96,61 @@ def modules():
             continue
         pom = d / "pom.xml"
         mid, deps = pom_info(pom) if pom in files else (d.name, [])
-        found[mid] = Module(d, mid, deps, srcs)
+        found[mid] = Module(d, mid, deps, srcs, mid)
+    split_parts(found)
     for m in found.values():
         for aid, scope in m.deps:
-            if aid in found and scope != "test":
-                found[aid].dependents.append(m.id)
+            if scope == "test":
+                continue
+            for target in found.values():
+                if target.artifact == aid and target is not m:
+                    target.dependents.append(m.id)
+    narrow_split(found)
     return found
+
+
+def narrow_split(found):
+    """A build file depends on a whole module, but a module that depends on a split one uses only the parts it imports.
+    The parts of one module depend on each other the same way."""
+    split = [m for m in found.values() if m.parent or m.parts]
+    if not split:
+        return
+    texts = {m.id: [read(f) for f in m.sources if f.suffix == ".java"] for m in found.values()}
+    for m in split:
+        pkgs = packages(m)
+        imports = importer(pkgs) if pkgs else None
+        m.dependents = sorted(o.id for o in found.values()
+                              if o is not m and imports and any(imports.search(t) for t in texts[o.id]))
+    for m in split:
+        m.siblings_used = sorted(s.id for s in split if s.artifact == m.artifact and m.id in s.dependents)
+
+
+def split_parts(found):
+    """parts.txt gives a directory inside a module a card of its own: one `<card id> <directory>` per line.
+    The part takes the sources under its directory; the module keeps the rest, and loses its card if none are left."""
+    if not PARTS.exists():
+        return
+    for no, line in enumerate(PARTS.read_text().splitlines(), 1):
+        line = line.split("#", 1)[0].strip()
+        if not line:
+            continue
+        try:
+            pid, rel = line.split()
+        except ValueError:
+            sys.exit(f"{PARTS.relative_to(ROOT)}:{no}: expected `<card id> <directory>`")
+        d = Path(rel)
+        parent = next((m for m in found.values() if m.main in d.parents or m.main == d), None)
+        if parent is None or pid in found:
+            sys.exit(f"{PARTS.relative_to(ROOT)}:{no}: " + (f"`{pid}` is taken" if parent else f"{rel} is in no module's src/main"))
+        srcs = [f for f in parent.sources if d in f.parents]
+        if not srcs:
+            sys.exit(f"{PARTS.relative_to(ROOT)}:{no}: {rel} holds none of {parent.id}'s sources")
+        parent.sources = [f for f in parent.sources if d not in f.parents]
+        parent.parts.append(pid)
+        parent.excluded.append(d)
+        found[pid] = Module(d, pid, parent.deps, srcs, parent.artifact, main=d, build=parent.build, parent=parent.id)
+    for mid in [mid for mid, m in found.items() if not m.sources]:
+        del found[mid]
 
 
 def module_of(path, mods):
@@ -108,6 +163,7 @@ def module_of(path, mods):
 
 # ---------- declarations without bodies ----------
 
+JAVA_PACKAGE = re.compile(r"^package\s+([\w.]+)\s*;", re.M)
 TYPE_KW = re.compile(r"\b(class|interface|enum|record|@interface)\b")
 ANNOTATION = re.compile(r"@[\w.]+(\([^()]*\))?\s*")
 OVERRIDE = re.compile(r"@Override\s*")
@@ -253,7 +309,9 @@ def skill_description(text):
 
 
 def skill_mentions(m, all_skills, types):
-    terms = {m.id, m.path.name} | {t for t in types if len(t) >= 6}
+    # A part's directory name is a package segment ("ir", "dm"), far too common a word to match on.
+    names = {m.id, f"{m.build.name}/{m.path.name}"} if m.parent else {m.id, m.path.name}
+    terms = names | {t for t in types if len(t) >= 6}
     pattern = re.compile(r"\b(" + "|".join(re.escape(t) for t in sorted(terms, key=len, reverse=True)) + r")\b")
     hits = {}
     for name, text in all_skills.items():
@@ -264,11 +322,23 @@ def skill_mentions(m, all_skills, types):
 
 
 def module_header(m, mods):
-    internal = sorted(a for a, s in m.deps if a in mods and s != "test")
-    external = sorted(a for a, s in m.deps if a not in mods and s != "test")
+    artifacts = {o.artifact for o in mods.values()}
+    internal = sorted(a for a, s in m.deps if a in artifacts and s != "test")
+    external = sorted(a for a, s in m.deps if a not in artifacts and s != "test")
+    split = []
+    if m.parent:
+        siblings = [p for p in mods[m.parent].parts if p != m.id] if m.parent in mods else []
+        split = [f"part of module {m.parent} ({m.build}), which has a card of its own for each of: "
+                 f"{', '.join([m.id] + siblings)}. The external dependencies below are the whole module's.",
+                 f"uses within {m.parent}: {', '.join(m.siblings_used) or '-'}"]
+    elif m.parts:
+        split = [f"the declarations below are what is left of this module after its parts, each with a card of its own: "
+                 f"{', '.join(m.parts)}",
+                 f"uses within {m.id}: {', '.join(m.siblings_used) or '-'}"]
     return "\n".join([
         f"# Module {m.id}",
         f"path: {m.path}",
+        *split,
         f"depends on (project): {', '.join(internal) or '-'}",
         f"depends on (external): {', '.join(external) or '-'}",
         f"depended on by: {', '.join(sorted(m.dependents)) or '-'}",
@@ -287,19 +357,23 @@ def wiring(m):
     return "\n\n".join(parts)
 
 
+def packages(m):
+    return {p for f in m.sources if f.suffix == ".java" for p in JAVA_PACKAGE.findall(read(f))}
+
+
+def importer(pkgs):
+    """Matches an import of a type in one of `pkgs`: `pkg.Type`, `pkg.*` or a static import, never a subpackage's."""
+    return re.compile(r"^import\s+(?:static\s+)?(?:" + "|".join(re.escape(p) for p in sorted(pkgs)) + r")\.(?:[A-Z]|\*)", re.M)
+
+
 def wired_from(m, mods, types):
     """Lines in other modules that construct this module's types: where it gets plugged in.
     Only files that import one of this module's packages count, so a same-named type elsewhere does not."""
-    pkgs = set()
-    for f in m.sources:
-        if f.suffix == ".java":
-            pm = re.search(r"^package\s+([\w.]+)", read(f), re.M)
-            if pm:
-                pkgs.add(pm.group(1))
+    pkgs = packages(m)
     if not types or not pkgs:
         return ""
     constructs = re.compile(r"\bnew\s+(" + "|".join(sorted(types, key=len, reverse=True)) + r")\b")
-    imports = re.compile(r"^import\s+(" + "|".join(re.escape(p) for p in pkgs) + r")\.", re.M)
+    imports = importer(pkgs)
     hits = []
     for other in mods.values():
         if other is m:
@@ -445,8 +519,12 @@ def write_cards(ids, mods, model):
 def changed_modules(sha, mods):
     changed = set()
     for p in git("diff", "--name-only", sha, "HEAD").splitlines():
-        m = module_of(Path(p), mods)
-        if m and (m.path / "src" / "main" in Path(p).parents or Path(p).name in BUILD_FILES):
+        p = Path(p)
+        if p.name in BUILD_FILES:
+            changed |= {m.id for m in mods.values() if m.build == p.parent}
+            continue
+        m = module_of(p, mods)
+        if m and m.main in p.parents:
             changed.add(m.id)
     return changed
 
@@ -538,7 +616,7 @@ def cmd_status(mods, a):
         notes, changed = [], ""
         sha = meta.get("verified-at", "")
         try:
-            stat = git("diff", "--numstat", sha, "HEAD", "--", str(m.path / "src" / "main"))
+            stat = git("diff", "--numstat", sha, "HEAD", "--", str(m.main), *(f":(exclude){d}" for d in m.excluded))
             changed = str(sum(int(x) + int(y) for x, y, _ in (l.split("\t") for l in stat.splitlines()) if x != "-"))
         except subprocess.CalledProcessError:
             notes.append(f"unknown verified-at '{sha}'")

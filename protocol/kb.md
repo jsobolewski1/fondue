@@ -7,6 +7,7 @@ Read this file when you write or update the knowledge base. A role that only rea
 ## What it holds, and what it does not
 * **index.md** - one entry per module: a summary of what it offers, with other names for the same capability, and the skills that cover it. Above them, every project skill with its description. A script generates it from the cards, so it is never edited by hand. It stays small enough to read whole, about 5k tokens for 30-40 modules. Why read it whole: you cannot search for something you do not know exists.
 * **cards/<module>.md** - one per module, at most 60 lines: purpose, what it offers, its extension points with the file that wires a new one in, what not to rebuild, its boundaries, and the skills to read next. `card-writer.md` next to this file is the card's shape and rules.
+* **parts.txt** - optional, written by the User: a module too broad for one card gets a card per package directory, one `<card id> <directory>` per line. Each part is a module to every command; the module's own card keeps what is left, and disappears when nothing is. A build file depends on the whole module, so a part's users are the modules that import its packages, and the parts of one module use each other the same way. Why not split the module instead: how the code is built is the project's decision, not the knowledge base's.
 
 The split with project skills is **one fact, one home.** A card says what exists and where. A skill says why and how. A card that starts explaining has content that belongs in a skill.
 
@@ -19,7 +20,7 @@ A card is never an inventory: signatures, file lists and call sites are what gre
 
 | command | what it does |
 |---|---|
-| `modules` | lists the modules: a directory with a build file and sources under `src/main` |
+| `modules` | lists the modules: a directory with a build file and sources under `src/main`, and the parts `parts.txt` names |
 | `estimate [<id>... \| --since <sha>]` | the tokens and cost of writing those cards (default: all), before spending them |
 | `write <id>... \| --all` | writes cards, then the index |
 | `write --since <sha>` | writes the cards of modules changed since `<sha>` and of modules with no card, removes the cards of modules that are gone, then the index |

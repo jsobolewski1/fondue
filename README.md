@@ -150,6 +150,8 @@ read before they design:
   thing, plus every project skill. Small enough to read whole, about 5k tokens for 30-40 modules.
 - `fondue/kb/cards/<module>.md`: what a module offers, **where a new thing plugs in** (down to the
   file that wires it), and what not to rebuild. What and where only. Why and how stay in your skills.
+  A module too broad for one card can get a card per package, listed in `fondue/kb/parts.txt`,
+  without changing your build.
 
 `/fondue:kb-init` builds it. A script does all the crawling: declarations without method bodies,
 the places other modules construct a module's types, wiring files. The model then writes each card
