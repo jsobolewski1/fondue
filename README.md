@@ -73,11 +73,11 @@ fondue is young. Here's what it has actually run:
 
 | | |
 |---|---|
-| ✅ **spec** | ~20 specs done across several projects, from small features to a 500-file refactoring |
-| ✅ **hunt** | 1 bug to a verified fix |
+| ✅ **spec** | 30+ specs done across several projects, from small features to a 500-file refactoring |
+| ✅ **hunt** | 10+ bugs to a verified fix |
 | ✅ **Mixed vendors** | Codex has held the Architecture Reviewer seat in real specs, through an earlier setup |
 | ✅ **First-run agent setup** | Dry-run against Codex |
-| 🧪 **Knowledge base** | Piloted on one 33-module Java project; not yet run inside a spec |
+| ✅ **Knowledge base** | Piloted on one 33-module Java project; not yet run inside a spec |
 
 Earlier specs ran on earlier versions of the protocol. **Issues and war stories are welcome.**
 
