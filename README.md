@@ -222,11 +222,12 @@ default beyond what the deployment needs" (phase-02.md, Essential knowledge 9).
 Everything is **plain files in your repository**, which you can read, diff and review:
 
 ```
-fondue/specs/017-<name>/        (a real spec, at done)
-  roster.md  99-user.md  stats.md  current-state.txt
-  pre-plan/  00-brief.md  01-research.md  02-reviewer-research.md  03-draft.md  04-draft.md
-  plan/      plan.md  phase-01.md … phase-04.md
-  review/    pre-plan/  plan/  phase-01/ … phase-04/     00-request.md  01-review.md  02-answer.md …
+fondue/specs/022-<name>/        (a real spec, at done)
+  roster.md  99-user.md  stats.md  current-state.txt  landed.md
+  pre-plan/  00-brief.md  01-research.md  02-reviewer-research.md  03-draft.md … 05-draft.md
+  plan/      plan.md  research.md  phase-01.md … phase-07.md
+  review/    pre-plan/  plan/  phase-01/ … phase-07/     00-request.md  01-review.md  02-answer.md …
+  handover/
 ```
 
 - Bugs live in `fondue/bugs/<bug>/`, and the knowledge base in `fondue/kb/`.
@@ -238,14 +239,22 @@ fondue/specs/017-<name>/        (a real spec, at done)
 **This is not a cheap way to write code.** Use it where a wrong design or a wrong diagnosis would
 cost more than the tokens. For a small, obvious change, just make the change.
 
-The 017 spec above, for example:
+Two real specs, the 022 above and the one before it:
 
-| Phases | Turns | Agent time | Claude | Codex (Architecture Reviewer) |
-|---|---|---|---|---|
-| 4 | 21 | 2.3 h | 0.1M output · 2.1M cache writes · 80M cache reads | 4.6M input, 4.4M of it cached |
+| Spec | Phases | Turns | Agent time | Claude | Claude, input-equivalent | Codex |
+|---|---|---|---|---|---|---|
+| 021 | 3, after one reopen | 31 | 3.0 h | 0.17M output · 1.8M cache writes · 111M cache reads | 15.6M | 27.9M input, 26.5M of it cached · 128k output (both reviewers) |
+| 022 | 7 | 54 | 6.5 h | 1.7M output · 7.3M cache writes · 471M cache reads | 70.2M | 13.6M input, 12.8M of it cached · 74k output (Architecture Reviewer) |
 
-Most of the volume is cache reads, which bill at a fraction of fresh input. Every turn is logged in
-`stats.md`, so you always know what yours cost.
+Cost follows the size of the spec, not the process: 022's seven phases took the Coder 23 turns. 021
+shows what a failed approach costs: it reopened once and still finished in about three hours.
+
+Most of the volume is cache reads, which bill at a fraction of fresh input. **Input-equivalent**
+folds output, cache writes and cache reads into one figure at the input price, so specs can be
+compared. It compares only loosely across rosters: 022's Code Reviewer was Claude at `xhigh`, and
+021 seated Codex as both reviewers. Both ran before the 0.4 handover update, which adds a writer
+turn, a review, and about $0.1 per knowledge-base card. Every turn is logged in `stats.md`, and
+`protocol/stats-total.py <stats.md>` totals yours the same way.
 
 <details>
 <summary><b>How the process keeps cost down</b></summary>
