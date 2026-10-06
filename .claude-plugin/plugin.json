@@ -1,6 +1,6 @@
 {
   "name": "fondue",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "A team of AI agents that plan, build and review each other's work, with you as the team lead. Spec-driven development and bug hunting for Claude Code. Mix Claude, Codex and other agents in one team.",
   "author": {
     "name": "Jakub Sobolewski"
