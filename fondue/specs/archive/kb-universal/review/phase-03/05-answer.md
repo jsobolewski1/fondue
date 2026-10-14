@@ -11,10 +11,10 @@
   3. **Keep the cards and record the weakness.** Nothing is rewritten. The design notes' Known limits say that a card of such a module may have a "Boundaries" entry that only says no dependencies were computed or declared, and that it means nothing.
 
   **Recommendation:** Option 2. The fix is one sentence, and an empty "no dependencies" claim is the kind of entry your earlier ruling meant to keep out. Rewriting only the affected cards costs a quarter of a full write and leaves the measured costs, which barely depend on this sentence, as they are.
-- #2 accepted, fixed in b62a658 as proposed
+- #2 accepted, fixed in 8ef9145 as proposed
 
 **Build:** python3 -m unittest discover -s protocol/kb/tests - green, 53 tests passed
 
-**Gates:** unchanged since 03-answer.md: b62a658 changes only the design notes, and no card was written.
+**Gates:** unchanged since 03-answer.md: 8ef9145 changes only the design notes, and no card was written.
 
 Verdict: question 04-review.md#1

@@ -32,7 +32,7 @@ For a Java build-file module nothing changes. A residual still never owns a buil
 RESULT (`<scratch>/cr01/b_part_spanning.py`). First, a Maven project with modules `core` and `api`, and `core-all core` in `parts.txt`. Second, with `BUDGET=1000` and `FLOOR=100`, `{"big/a.c": 10 bytes, "big/l1/x.c": 600, "big/l2/y.c": 600}`, then `big-all big` in `parts.txt` and a change to `big/l2/y.c`:
 ```
 1bc80fe: fondue/kb/parts.txt:1: core is in no module's src/main
-582779d: api   api   1 files   0k | core-all   core   1 files   0k | 2 modules
+7c7d29f: api   api   1 files   0k | core-all   core   1 files   0k | 2 modules
 before: {'big': ['big/a.c'], 'big-l1': ['big/l1/x.c'], 'big-l2': ['big/l2/y.c']}
 after:  {'big-l1': ['big/l1/x.c'], 'big-l2': ['big/l2/y.c'], 'big-all': ['big/a.c']}
 pathspecs big-all: ['big']
@@ -76,4 +76,4 @@ A dir-kind part gets `build=d` (kb.py:290). `module_header` prints `part of modu
 
 **Proposed solution:** for a dir-kind part, print the parent's path in that parenthesis, e.g. by keeping it as `build` (`build=parent.build`, which for a directory module is its path).
 
-Verdict: approved-with-fixes git diff 4a967ef..582779d | #1, #2, #3, #4
+Verdict: approved-with-fixes git diff 461dd00..7c7d29f | #1, #2, #3, #4

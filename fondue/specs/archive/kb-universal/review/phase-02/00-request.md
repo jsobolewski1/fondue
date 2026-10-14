@@ -1,6 +1,6 @@
-- **Subject:** git diff 370d6ff..9ca6f64
+- **Subject:** git diff 9a4d789..379f0bc
 - **Build:** python3 -m unittest discover -s protocol/kb/tests - green, 41 tests passed
-- **Gates:** `$S` = <scratch>/gate, the clones of phase 1's Gate, `$S/fondue` re-cloned at 9ca6f64. Run from the repository root.
+- **Gates:** `$S` = <scratch>/gate, the clones of phase 1's Gate, `$S/fondue` re-cloned at 379f0bc. Run from the repository root.
   - **G1** the phase file's snippet (with `kb.code_part` and `kb.balance`), per sample: c `0 []`; shell `0 []`; fondue `0 []`; java-vue `0 []`; java `0 []`; hono `0 []`.
   - **G2** raw / skeleton chars over the same files: c 1,175,236 / 216,470 = 5.43 (floor 4); java-vue 313,592 / 88,743 = 3.53 (3); hono 923,747 / 429,566 = 2.15 (2); fondue 64,233 / 9,085 = 7.07 (5); shell 23,405 / 12,426 = 1.88 (1.5). java, no floor: 2.25.
   - **G3** `kb.py pack` of every module on each clone:

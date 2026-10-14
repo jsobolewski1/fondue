@@ -1,4 +1,4 @@
-- #1 accepted, fixed in 9206954 as proposed. G3 run again at 9206954: 8 new dead names, all corrected by hand to repo paths (fondue 2: `./turn-stats.py` and `./stats-total.py` to `protocol/...`; hono 6: two in `src`, four in `src-middleware`, one of them, `./jwt/index.ts`, corrected by hand because two `jwt/index.ts` exist). Every sample reads `clean` again. New counts: c 89, shell 0, fondue 2 (2 corrected), hono 47 (23 corrected, 24 backticks dropped), java-vue 14; design notes updated in 81f79c1.
+- #1 accepted, fixed in 83171ca as proposed. G3 run again at 83171ca: 8 new dead names, all corrected by hand to repo paths (fondue 2: `./turn-stats.py` and `./stats-total.py` to `protocol/...`; hono 6: two in `src`, four in `src-middleware`, one of them, `./jwt/index.ts`, corrected by hand because two `jwt/index.ts` exist). Every sample reads `clean` again. New counts: c 89, shell 0, fondue 2 (2 corrected), hono 47 (23 corrected, 24 backticks dropped), java-vue 14; design notes updated in 669ab52.
 - #2 question:
   **Decision:** Most cards of plain-directory code have a "Boundaries" section that the plan's rule says they may not have. Should the writer's prompt change so that it leaves the section out, and the cards be written again, or should the cards stay as they are, with the weakness recorded?
 
@@ -11,10 +11,10 @@
   2. **Keep the cards and record the weakness.** Nothing is rewritten. The design notes' Known limits say that a directory module's "Boundaries" section is not reliable, so a reader must check it against the code. Every future card of such a module will have the same problem.
 
   **Recommendation:** Option 1. A wrong boundary is the entry most likely to mislead a later design, which is why your earlier ruling limited what it may rest on; the fix is two prompt lines, and the rewrite costs about what the first write did.
-- #3 accepted, fixed in 81f79c1 as proposed
+- #3 accepted, fixed in 669ab52 as proposed
 
 **Build:** python3 -m unittest discover -s protocol/kb/tests - green, 53 tests passed
 
-**Gates:** at 9206954 (81f79c1 changes only the design notes), same `$S`: G1 `prompt("java")` still byte-identical (`Prompt.test_java_variant_is_the_prompt_as_it_was`; card-writer.md unchanged since 053da1d); G3 `clean` on c, shell, fondue, hono, and on java-vue's five ids, with the counts above. G2, G4, G5 and the calibration as in the request: no card was written again.
+**Gates:** at 83171ca (669ab52 changes only the design notes), same `$S`: G1 `prompt("java")` still byte-identical (`Prompt.test_java_variant_is_the_prompt_as_it_was`; card-writer.md unchanged since b7d912c); G3 `clean` on c, shell, fondue, hono, and on java-vue's five ids, with the counts above. G2, G4, G5 and the calibration as in the request: no card was written again.
 
 Verdict: question 01-review.md#2

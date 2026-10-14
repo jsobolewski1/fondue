@@ -15,4 +15,4 @@ def code_file(f):
 ```
 In `is_source`, kb.py:177-180 become `if ruled(f, rules, "-"): return False` and `if ruled(f, rules, "+"): return True`, and kb.py:185 becomes `return code_file(f)`. `generic_source`'s body becomes `return not ruled(f, RULES, "-") and (ruled(f, RULES, "+") or code_file(f))`. Behaviour is unchanged, so no test changes.
 
-Verdict: approved-with-fixes git diff 370d6ff..9ca6f64 | #1
+Verdict: approved-with-fixes git diff 9a4d789..379f0bc | #1

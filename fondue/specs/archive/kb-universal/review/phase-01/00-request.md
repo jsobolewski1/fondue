@@ -1,6 +1,6 @@
-- **Subject:** git diff 4a967ef..582779d
+- **Subject:** git diff 461dd00..7c7d29f
 - **Build:** python3 -m unittest discover -s protocol/kb/tests - green, 25 tests passed
-- **Gates:** `$S` = <scratch>/gate, clones as the phase file's Gate says (fondue cloned at 582779d, hono at 588ec13f). Run from the repository root.
+- **Gates:** `$S` = <scratch>/gate, clones as the phase file's Gate says (fondue cloned at 7c7d29f, hono at 588ec13f). Run from the repository root.
   - **G1** `python3 protocol/kb/kb.py modules --root $S/<label>`, every list as the phase file's table states:
     - c (12): `root` . 14k; `<protocol>` 95k; `core` 410k; `data` 196k; `examples-bootstrap_server` 54k; `examples-client` 195k; `examples-lightclient` 52k; `examples-server` 40k; `examples-shared` 27k; `include` 39k; `tools` 14k; `transport` 32k
     - shell (2): `root` . 6k; `provision` 17k

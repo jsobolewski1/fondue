@@ -1,11 +1,11 @@
 Applying the ruling of 2026-10-15 on 01-review.md#2 (option 1).
 
-- #2 fixed in 8cc0281 as the ruling's option 1 and the proposed solution word it: the `[any code]` Boundaries line names the files that count, and a new `[any code]` line limits Boundaries to them or a skill's line and says to omit the section. `prompt("java")` is unchanged (`cmp` against 1bc80fe: identical); `Prompt.test_any_code_variant` now expects 6 `[any code]` lines. Then every gated card was written again from scratch: the first write's cards were moved to `$S/first-write/` and `$S/fondue` re-cloned at 8cc0281, so no card went into its own rewrite. Documents: 89c0edc.
+- #2 fixed in 7b1cdac as the ruling's option 1 and the proposed solution word it: the `[any code]` Boundaries line names the files that count, and a new `[any code]` line limits Boundaries to them or a skill's line and says to omit the section. `prompt("java")` is unchanged (`cmp` against 1bc80fe: identical); `Prompt.test_any_code_variant` now expects 6 `[any code]` lines. Then every gated card was written again from scratch: the first write's cards were moved to `$S/first-write/` and `$S/fondue` re-cloned at 7b1cdac, so no card went into its own rewrite. Documents: 283e45d.
 - #1 and #3 as in 02-answer.md.
 
 **Build:** python3 -m unittest discover -s protocol/kb/tests - green, 53 tests passed
 
-**Gates:** at 8cc0281 (89c0edc changes only documents), same `$S`.
+**Gates:** at 7b1cdac (283e45d changes only documents), same `$S`.
 - G1: `prompt("java")` byte-identical to 1bc80fe's `card-writer.md`; the Java gate `IDENTICAL`.
 - G2 / G4 / G5, the second write, `--model sonnet`, each `estimate` printed just before its write:
 
@@ -21,4 +21,4 @@ Applying the ruling of 2026-10-15 on 01-review.md#2 (option 1).
 - G3: `kb.py status` reads `clean` on c, shell, fondue, hono, and on java-vue's five ids. Dead names fixed by hand, with the same script as before: c 56 (6 corrected, 50 backticks dropped), shell 1 (dropped), fondue 1 (the script corrected `stats.md` to the spec folder's `stats.md`, which the card does not mean; reverted by hand to plain text), hono 21 (5 corrected, 16 dropped), java-vue 9 (dropped).
 - G6: the same ten cards, rewritten, in `$S/<label>/fondue/kb/cards/`: c `core.md`, `include.md`; shell `provision.md`, `root.md`; fondue `protocol.md`, `integrations.md`; hono `src-router.md`, `src-middleware.md`; java-vue `<p>-demo-servers-shared-webapp.md`, `<p>-demo-server-webapp.md`. Three of them (`include`, `provision`, `src-middleware`) now have no Boundaries section. Several that kept one hold a single "no dependencies computed / declared" entry, for the reviewer to judge against the new prompt line.
 
-Verdict: next-round git diff 81f79c1..89c0edc
+Verdict: next-round git diff 669ab52..283e45d
