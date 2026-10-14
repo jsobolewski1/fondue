@@ -167,6 +167,14 @@ def matches(pattern, p):
     return s == pattern or s.startswith(pattern + "/") or fnmatch.fnmatchcase(s, pattern)
 
 
+def ruled(f, rules, sign):
+    return any(matches(pat, f) for s, pat in rules if s == sign)
+
+
+def code_file(f):
+    return f.suffix.lower() in CODE_EXT or f.name in CODE_NAMES or f.name.startswith("Dockerfile.")
+
+
 def is_source(f, mains, rules):
     """Whether a tracked file outside the build-file modules is a directory module's source: the first rule that
     applies decides."""
@@ -174,15 +182,15 @@ def is_source(f, mains, rules):
         return False
     if any(d in mains for d in f.parents):
         return False
-    if any(matches(pat, f) for sign, pat in rules if sign == "-"):
+    if ruled(f, rules, "-"):
         return False
-    if any(matches(pat, f) for sign, pat in rules if sign == "+"):
+    if ruled(f, rules, "+"):
         return True
     if any(d.startswith(".") or d in TEST_DIRS or d in VENDOR_DIRS for d in f.parts[:-1]):
         return False
     if any(fnmatch.fnmatchcase(f.name, t) for t in TEST_FILES):
         return False
-    return f.suffix.lower() in CODE_EXT or f.name in CODE_NAMES or f.name.startswith("Dockerfile.")
+    return code_file(f)
 
 
 def directory_modules(files, found, rules):
@@ -661,10 +669,7 @@ def generic_skeleton(src):
 def generic_source(f):
     """A build-file module's file under src/main that the generic reader reads: a source by the code list or the name
     list, or by an include line, and not excluded."""
-    if any(matches(pat, f) for sign, pat in RULES if sign == "-"):
-        return False
-    return (any(matches(pat, f) for sign, pat in RULES if sign == "+")
-            or f.suffix.lower() in CODE_EXT or f.name in CODE_NAMES or f.name.startswith("Dockerfile."))
+    return not ruled(f, RULES, "-") and (ruled(f, RULES, "+") or code_file(f))
 
 
 def skeleton(f):
