@@ -275,15 +275,19 @@ def split_parts(found, parts, files):
     mains = build_mains(found)
     for no, pid, rel in parts:
         d = Path(rel)
-        parent = next((o for f in files if d in f.parents for o in [owner(f, found, mains)] if o), None)
+        owned = [(f, o) for f in files if d in f.parents for o in [owner(f, found, mains)] if o]
+        parent = owned[0][1] if owned else None
         if parent is None or pid in found:
             sys.exit(f"{where}:{no}: " + (f"`{pid}` is taken" if parent else f"{rel} is in no module"))
+        if any(o is not parent for _, o in owned) or not within(d, owns(parent, owned[0][0], mains)):
+            sys.exit(f"{where}:{no}: {rel} is not inside one module")
         srcs = [f for f in parent.sources if d in f.parents]
         if not srcs:
             sys.exit(f"{where}:{no}: {rel} holds none of {parent.id}'s sources")
         parent.sources = [f for f in parent.sources if d not in f.parents]
         parent.parts.append(pid)
         parent.excluded.append(d)
+        parent.folded = [f for f in parent.folded if f != d]
         if parent.kind == "build":
             found[pid] = Module(d, pid, parent.deps, srcs, parent.artifact, main=d, build=parent.build, parent=parent.id)
         else:
@@ -711,8 +715,10 @@ def changed_modules(sha, mods):
             continue
         p = Path(p)
         if p.name in BUILD_FILES:
-            changed |= {m.id for m in mods.values() if m.kind == "build" and m.build == p.parent}
-            continue
+            built = {m.id for m in mods.values() if m.kind == "build" and m.build == p.parent}
+            if built:
+                changed |= built
+                continue
         m = owner(p, mods, mains)
         if m:
             changed.add(m.id)

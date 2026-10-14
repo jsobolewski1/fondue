@@ -220,6 +220,7 @@ class DirectoryModules(RepoTest):
         self.assertIn("big-s", mods)
         self.assertEqual(mods["big-s"].sources, [Path("big/s/z.c")])
         self.assertEqual(mods["big"].sources, [Path("big/top.c")])
+        self.assertIn("holds: the files directly in big\n", kb.pack(mods["big"], mods, {}))
         base = r.head()
         r.card("big", base)
         r.card("big-s", base)
@@ -227,6 +228,29 @@ class DirectoryModules(RepoTest):
         self.assertEqual(self.changed(sha + "~1"), {"big-s"})
         self.assertEqual(self.status_counts()["big"], "0")
         self.assertEqual(self.status_counts()["big-s"], "2")
+
+    def test_part_over_more_than_one_module(self):
+        r = self.repo({"core/pom.xml": pom("core"), "core/src/main/java/app/A.java": JAVA,
+                       "api/pom.xml": pom("api"), "api/src/main/java/app/B.java": JAVA})
+        r.parts("core-all core\n")
+        with self.assertRaises(SystemExit) as e:
+            kb.modules()
+        self.assertEqual(e.exception.code, "fondue/kb/parts.txt:1: core is not inside one module")
+
+    def test_part_wider_than_its_module(self):
+        r = self.repo({"big/a.c": "x" * 10, "big/l1/x.c": "x" * 600, "big/l2/y.c": "x" * 600})
+        r.parts("big-all big\n")
+        with self.assertRaises(SystemExit) as e:
+            kb.modules()
+        self.assertEqual(e.exception.code, "fondue/kb/parts.txt:1: big is not inside one module")
+
+    def test_build_file_in_a_group_counts_against_it(self):
+        r = self.repo({"shared/build.gradle.kts": "plugins {}\n", "shared/src/commonMain/kotlin/A.kt": "class A\n"})
+        self.assertEqual(sorted(kb.modules()), ["shared"])
+        r.card("shared", r.head())
+        sha = r.commit({"shared/build.gradle.kts": "plugins { kotlin }\n"})
+        self.assertEqual(self.changed(sha + "~1"), {"shared"})
+        self.assertEqual(self.status_counts(), {"shared": "2"})
 
     def test_part_outside_every_module(self):
         r = self.repo({"a/x.py": "x\n", "docs/y.md": "x\n"})

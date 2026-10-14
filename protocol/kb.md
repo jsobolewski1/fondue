@@ -12,7 +12,7 @@ Read this file when you write or update the knowledge base. A role that only rea
   - `- <pattern>`: what the pattern matches is not source, e.g. `- benchmarks` or `- *.min.js`. A directory left with no source has no module.
   - `+ <pattern>`: what the pattern matches is source, whatever its extension and wherever it sits, e.g. `+ *.zig` for a language `kb.py` does not list. `-` wins over `+`.
 
-  A pattern is a path relative to the project root, a directory and everything under it, or a glob over the whole path whose `*` also crosses `/`. `#` starts a comment.
+  A pattern is a path relative to the project root, a directory and everything under it, or a glob over the whole path whose `*` also crosses `/`. Neither line applies under `fondue/` or under a build-file module's `src/main`, which stays that module's. `#` starts a comment.
 
 The split with project skills is **one fact, one home.** A card says what exists and where. A skill says why and how. A card that starts explaining has content that belongs in a skill.
 
