@@ -8,8 +8,8 @@
 | Arbiter | claude | opus | high | - |
 | Architect | claude | opus | xhigh | agent a989f7755f904e6d3 |
 | Architecture Reviewer | codex | gpt-5.6-sol | high | session 01a13c18-5dea-7150-a23d-042fc6bdb6d3 |
-| Coder | claude | opus | high | - |
-| Code Reviewer | claude | opus | xhigh | - |
+| Coder | claude | opus | high | agent adf040ebf7d5e7483 |
+| Code Reviewer | claude | opus | xhigh | agent af10369929dfc27fd |
 | Handover Writer | claude | opus | high | - |
 
 ## Skills
