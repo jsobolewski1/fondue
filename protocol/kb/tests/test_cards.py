@@ -110,7 +110,7 @@ class DeadNames(RepoTest):
                        "lib/x.js": "export const x = 1\n", "top.sh": "echo\n"})
         self.card(r, "web", "`app/src/main.js`, `./app/src/views`, `web/app/src/main.js`, `../lib/x.js`, "
                             "`app/src/gone.js`, `../../top.sh`.")
-        self.assertTrue(self.notes("web").endswith("dead: ../../top.sh, ../lib/x.js, app/src/gone.js"),
+        self.assertTrue(self.notes("web").endswith("dead: ../../top.sh, ../lib/x.js, ./app/src/views, app/src/gone.js"),
                         self.notes("web"))
 
     def test_skills_and_module_ids_are_skipped(self):

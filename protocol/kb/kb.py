@@ -1164,7 +1164,9 @@ def declaration_map(mods):
 
 def own_path(m, name):
     """Whether name is a path, relative to m's directory, of a file or directory inside it: the way the pack's
-    headings name a module's files."""
+    headings name a module's files. `./<name>` is a file at the root, never the module's."""
+    if name.startswith("./"):
+        return False
     rel = Path(os.path.normpath(m.path / name))
     return ".." not in rel.parts and within(rel, m.path) and rel != m.path and (ROOT / rel).exists()
 
