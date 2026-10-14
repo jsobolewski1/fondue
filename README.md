@@ -80,7 +80,7 @@ fondue is young. Here's what it has actually run:
 | ✅ **hunt** | 10+ bugs to a verified fix |
 | ✅ **Mixed vendors** | Codex has held the Architecture Reviewer seat in real specs, through an earlier setup |
 | ✅ **First-run agent setup** | Dry-run against Codex |
-| ✅ **Knowledge base** | Piloted on one 33-module Java project; not yet run inside a spec |
+| ✅ **Knowledge base** | Piloted on a 33-module Java project, then on a C project, a shell project, a Vue/JavaScript web part, a public TypeScript project and fondue itself; not yet run inside a spec |
 
 Earlier specs ran on earlier versions of the protocol. **Issues and war stories are welcome.**
 
@@ -163,7 +163,7 @@ Java project, every card together cost about **$1.7 on Sonnet**, and the skill s
 estimate before spending anything. After that, each spec's handover and each hunt's fix update the
 cards they touched. `kb.py status` checks every card against the code for free.
 
-For now it reads Java and `.proto` files in Maven and Gradle projects. The why behind it is in
+It reads any project: Maven and Gradle modules as their build lays them out, and every other directory of source as a module of its own. Java and `.proto` have their own readers, and every other language goes through one that keeps declarations by indentation. The why behind it is in
 [`skills/kb-init/design-notes.md`](skills/kb-init/design-notes.md).
 
 ## ⚖️ The rules every review follows
