@@ -6,7 +6,7 @@
   kb.py write <id>... | --all         write cards: pack each module, one tool-less model call each, then the index
   kb.py write --since <sha>           write the cards of modules changed since <sha>, and of modules with no card
   kb.py touched <sha>                 modules changed since <sha>, and the project skills that cover them
-  kb.py status [--since <sha>]        every card against the code: changes since verified-at, dead symbols;
+  kb.py status [<id>...] [--since <sha>]  every card against the code: changes since verified-at, dead symbols;
                                       with --since, a card the work since <sha> left stale is a problem too
   kb.py index                         regenerate index.md from the cards
   kb.py usage [--since <time>]        tokens and cost of the model calls this tool made, since a local
@@ -60,6 +60,8 @@ REFS_PER_FILE = 3
 REF_NAME_MIN = 6
 CARD_MAX_LINES = 60
 CHARS_PER_TOKEN = 2.5     # measured on Java skeletons; chars/4 undercounts code by about 1.6x
+CHARS_PER_TOKEN_ANY = 2.5 # measured on packs read by the generic reader (skills/kb-init/design-notes.md)
+VARIANTS = ("java", "any code")
 WRITER_OVERHEAD = 1800    # system prompt and harness per call, in tokens
 WRITER_OUTPUT = 1500      # tokens a card takes to write
 PARALLEL = 6
@@ -680,11 +682,35 @@ def skeleton(f):
     return generic_skeleton(read(f))
 
 
+def read_files(m):
+    """The files declarations(m) reads, in path order: .java and .proto by their readers, the rest by the generic one."""
+    return [f for f in sorted(m.sources) if f.suffix in DECLARED_EXT or m.kind == "dir" or generic_source(f)]
+
+
+def variant(m):
+    """The writer's prompt for m: "java" when its declarations read only .java and .proto, "any code" otherwise."""
+    return "any code" if any(f.suffix not in DECLARED_EXT for f in read_files(m)) else "java"
+
+
+def prompt(v):
+    """card-writer.md for one variant: the lines marked for the other dropped, its own lines unmarked."""
+    out = []
+    for line in CARD_WRITER.read_text().splitlines(keepends=True):
+        mark = next((f"[{w}] " for w in VARIANTS if line.startswith(f"[{w}] ")), None)
+        if mark is None:
+            out.append(line)
+        elif mark == f"[{v}] ":
+            out.append(line[len(mark):])
+    return "".join(out)
+
+
+def chars_per_token(m):
+    return CHARS_PER_TOKEN if variant(m) == "java" else CHARS_PER_TOKEN_ANY
+
+
 def declarations(m):
     parts = []
-    for f in sorted(m.sources):
-        if f.suffix not in DECLARED_EXT and m.kind == "build" and not generic_source(f):
-            continue
+    for f in read_files(m):
         body = skeleton(f)
         if body.strip():
             parts.append(f"### {f.relative_to(m.path)}\n{body}")
@@ -760,17 +786,19 @@ def wiring_file(f, root):
     return f"### {f.relative_to(root)}\n" + "\n".join(lines[:WIRING_MAX_LINES]) + more
 
 
-def wiring(m, mods):
+def wiring_files(m, mods):
     """A build-file module's service registrations and Spring configuration; a directory module's build and manifest
-    files."""
+    files. Absolute paths."""
     if m.kind == "build":
         res = ROOT / m.path / "src" / "main" / "resources"
-        files = [f for g in WIRING_GLOBS for f in sorted(res.glob(g)) if f.is_file()]
-    else:
-        mains = build_mains(mods)
-        owned = sorted(f for f in FILES if f.name in WIRING_NAMES and owns(m, f, mains) is not None)
-        files = [ROOT / f for f in owned[:WIRING_MAX_FILES]]
-    return "\n\n".join(wiring_file(f, ROOT / m.path) for f in files)
+        return [f for g in WIRING_GLOBS for f in sorted(res.glob(g)) if f.is_file()]
+    mains = build_mains(mods)
+    owned = sorted(f for f in FILES if f.name in WIRING_NAMES and owns(m, f, mains) is not None)
+    return [ROOT / f for f in owned[:WIRING_MAX_FILES]]
+
+
+def wiring(m, mods):
+    return "\n\n".join(wiring_file(f, ROOT / m.path) for f in wiring_files(m, mods))
 
 
 def packages(m):
@@ -975,10 +1003,11 @@ def ensure_ignores():
         gi.write_text(".packs/\n.runs/\n")
 
 
-def call_writer(mid, text, model):
-    """One headless, tool-less call. No project settings: the writer needs nothing but its input."""
+def call_writer(mid, text, model, v):
+    """One headless, tool-less call, with the prompt of variant v. No project settings: the writer needs nothing but
+    its input."""
     proc = subprocess.run(
-        ["claude", "-p", "--model", model, "--tools", "", "--system-prompt", CARD_WRITER.read_text(),
+        ["claude", "-p", "--model", model, "--tools", "", "--system-prompt", prompt(v),
          "--output-format", "json", "--no-session-persistence", "--strict-mcp-config", "--setting-sources", ""],
         input=text, capture_output=True, text=True, cwd=RUNS)
     if proc.returncode != 0:
@@ -1006,7 +1035,7 @@ def write_cards(ids, mods, model):
     failed = []
 
     def one(mid):
-        lines = install_card(mid, call_writer(mid, pack(mods[mid], mods, all_skills), model))
+        lines = install_card(mid, call_writer(mid, pack(mods[mid], mods, all_skills), model, variant(mods[mid])))
         return mid, lines
 
     with concurrent.futures.ThreadPoolExecutor(PARALLEL) as pool:
@@ -1060,7 +1089,7 @@ def cmd_estimate(mods, a):
     all_skills = skills()
     total = 0
     for mid in ids:
-        tokens = int(len(pack(mods[mid], mods, all_skills)) / CHARS_PER_TOKEN) + WRITER_OVERHEAD
+        tokens = int(len(pack(mods[mid], mods, all_skills)) / chars_per_token(mods[mid])) + WRITER_OVERHEAD
         total += tokens
     out = WRITER_OUTPUT * len(ids)
     if not ids:
@@ -1106,23 +1135,90 @@ def cmd_touched(mods, a):
             print(f"  {s} (.claude/skills/{s}/SKILL.md) - {', '.join(sorted(covering[s]))}")
 
 
-def cmd_status(mods, a):
-    cs = cards()
-    all_types, type_files = set(), {}
+IDENTIFIER = re.compile(r"^([A-Za-z_][\w$]*)(?:(?:\.|#|::)([A-Za-z_][\w$]*))?(?:\(\))?$")
+FILE_NAME = re.compile(r"^\w[\w.-]*\.[A-Za-z0-9]+$")
+PATH_LIKE = re.compile(r"^[\w.-]+/[\w./-]+$")
+
+
+def declaration_map(mods):
+    """Every name the readers declare anywhere in the project, with the files that declare it and, per file, the text
+    a member is looked up in: a generic skeleton's code part, or a .java or .proto file's text."""
+    declared, member_text = {}, {}
     for m in mods.values():
-        if m.kind != "build":
+        for f in read_files(m):
+            text = read(f)
+            if f.suffix in DECLARED_EXT:
+                names, member_text[f] = set(TYPE_DECL.findall(text)), text
+            else:
+                sk = generic_skeleton(text)
+                names, in_comment, codes = skeleton_names(sk), False, []
+                for line in sk.splitlines():
+                    code, in_comment = code_part(line, in_comment)
+                    codes.append(code)
+                member_text[f] = "\n".join(codes)
+            for n in names:
+                declared.setdefault(n, []).append(f)
+    return declared, member_text
+
+
+def dead_any_code(m, mods, body, declared, member_text, all_skills):
+    """The names in backticks of a card for code of any language that the code does not have."""
+    own_files = {f.name for f in m.sources} | {f.name for f in wiring_files(m, mods)}
+    dead = set()
+    for name in re.findall(r"`([^`\n]+)`", body):
+        if "/" in name:
+            if PATH_LIKE.match(name) and not (ROOT / name).exists():
+                dead.add(name)
+        elif name in all_skills or name in mods or name in own_files:
             continue
+        elif IDENTIFIER.match(name):
+            first, member = IDENTIFIER.match(name).groups()
+            files = declared.get(first)
+            if not files or (member and not any(re.search(rf"(?<![\w$]){re.escape(member)}(?![\w$])", member_text[f])
+                                                for f in files)):
+                dead.add(name)
+        elif FILE_NAME.match(name):
+            dead.add(name)
+    return dead
+
+
+def dead_java(m, body, all_types, type_files):
+    symbol = re.compile(r"`([A-Z]\w*)(?:[.#](\w+))?(?:\(\))?`")
+    pathlike = re.compile(r"`([\w.-]+/[\w./-]+)`")
+    dead = set()
+    for t, member in symbol.findall(body):
+        if t not in all_types:
+            dead.add(t)
+        elif member and not any(re.search(rf"\b{re.escape(member)}\b", read(f)) for f in type_files[t]):
+            dead.add(f"{t}.{member}")
+    return dead | {p for p in pathlike.findall(body) if not (ROOT / p).exists()}
+
+
+def java_types(ms):
+    all_types, type_files = set(), {}
+    for m in ms:
         for f in m.sources:
             if f.suffix in DECLARED_EXT:
                 for t in TYPE_DECL.findall(read(f)):
                     all_types.add(t)
                     type_files.setdefault(t, []).append(f)
-    symbol = re.compile(r"`([A-Z]\w*)(?:[.#](\w+))?(?:\(\))?`")
-    pathlike = re.compile(r"`([\w.-]+/[\w./-]+)`")
+    return all_types, type_files
+
+
+def cmd_status(mods, a):
+    """With ids, only those modules are reported and counted."""
+    unknown = [i for i in a.ids if i not in mods]
+    if unknown:
+        sys.exit(f"unknown modules: {', '.join(unknown)}")
+    cs, all_skills = cards(), skills()
+    all_types, type_files = java_types([m for m in mods.values() if m.kind == "build"])
+    declared = member_text = None
     in_work = changed_modules(a.since, mods) if a.since else set()
     problems = 0
     print(f"{'module':40} {'changed':>8}  notes")
     for mid, m in sorted(mods.items()):
+        if a.ids and mid not in a.ids:
+            continue
         if mid not in cs:
             print(f"{mid:40} {'':>8}  no card")
             problems += 1
@@ -1137,13 +1233,14 @@ def cmd_status(mods, a):
             notes.append(f"unknown verified-at '{sha}'")
         if mid in in_work and changed not in ("", "0"):
             notes.append("stale: the work changed it after the card was written")
-        dead = set()
-        for t, member in symbol.findall(body):
-            if t not in all_types:
-                dead.add(t)
-            elif member and not any(re.search(rf"\b{re.escape(member)}\b", read(f)) for f in type_files[t]):
-                dead.add(f"{t}.{member}")
-        dead |= {p for p in pathlike.findall(body) if not (ROOT / p).exists()}
+        if variant(m) == "java":
+            types, files = (all_types, type_files) if m.kind == "build" else java_types(
+                [o for o in mods.values() if o.kind == "build"] + [m])
+            dead = dead_java(m, body, types, files)
+        else:
+            if declared is None:
+                declared, member_text = declaration_map(mods)
+            dead = dead_any_code(m, mods, body, declared, member_text, all_skills)
         if dead:
             notes.append("dead: " + ", ".join(sorted(dead)))
         lines = (CARDS / f"{mid}.md").read_text().count("\n")
@@ -1151,7 +1248,7 @@ def cmd_status(mods, a):
             notes.append(f"{lines} lines")
         problems += bool(notes)
         print(f"{mid:40} {changed:>8}  {'; '.join(notes)}")
-    for cid in sorted(set(cs) - set(mods)):
+    for cid in [] if a.ids else sorted(set(cs) - set(mods)):
         print(f"{cid:40} {'':>8}  card for a module that no longer exists")
         problems += 1
     print("clean" if not problems else f"{problems} modules need attention")
@@ -1215,7 +1312,8 @@ def cmd_pack(mods, a):
     for mid in a.ids:
         text = pack(mods[mid], mods, all_skills)
         (PACKS / f"{mid}.md").write_text(text)
-        print(f"{mid:40} ~{int(len(text) / CHARS_PER_TOKEN):>6} tokens -> {(PACKS / f'{mid}.md').relative_to(ROOT)}")
+        tokens = int(len(text) / chars_per_token(mods[mid]))
+        print(f"{mid:40} ~{tokens:>6} tokens -> {(PACKS / f'{mid}.md').relative_to(ROOT)}")
 
 
 COMMANDS = {"modules": cmd_modules, "estimate": cmd_estimate, "write": cmd_write, "touched": cmd_touched,

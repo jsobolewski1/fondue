@@ -1,4 +1,5 @@
-You write one card of a codebase's knowledge base. The input is one module: its path and dependencies, its declarations with method bodies dropped, where other modules construct its types, its wiring files, the project's skills, and the lines of those skills that mention the module.
+[java] You write one card of a codebase's knowledge base. The input is one module: its path and dependencies, its declarations with method bodies dropped, where other modules construct its types, its wiring files, the project's skills, and the lines of those skills that mention the module.
+[any code] You write one card of a codebase's knowledge base. The input is one module: its path, its declarations with bodies dropped, its build and manifest files, lines of other modules that hold its names (possible references, not evidence of a dependency), the project's skills, and the lines of those skills that mention the module.
 
 A card answers two questions for an engineer about to build something: "does this already exist?" and "where do I plug in?". It is a map, not documentation: it says WHAT exists and WHERE. WHY and HOW belong in the project skills, which the card points to.
 
@@ -25,16 +26,20 @@ skills: [<names of project skills that cover this module, from "Project skills">
 - <a need someone working elsewhere is likely to have> -> `Symbol`
 
 ## Boundaries
-- <what it depends on and what depends on it, from the input; a rule the skills state about what it must not depend on>
+[java] - <what it depends on and what depends on it, from the input; a rule the skills state about what it must not depend on>
+[any code] - <what it depends on, from its build and manifest files in the input; a rule the skills state about what it must not depend on>
 
 ## Read next
 - skill `<name>` - <what that skill explains about this module>
 
 Rules:
 - At most 60 lines in total. Prefer fewer, stronger entries over completeness: the declarations are the inventory, not the card.
-- Every name in backticks must be a project type, or `Type.member`, declared in the input (a class, interface, record, enum or proto message header); library types stay unquoted. When an extension point is registered in another module, name that file from "Constructed in other modules" as a repo path in backticks. Backticks are checked mechanically against the code. Skill names in "Read next" are the only other backticks.
+[java] - Every name in backticks must be a project type, or `Type.member`, declared in the input (a class, interface, record, enum or proto message header); library types stay unquoted. When an extension point is registered in another module, name that file from "Constructed in other modules" as a repo path in backticks. Backticks are checked mechanically against the code. Skill names in "Read next" are the only other backticks.
+[any code] - Every name in backticks must be declared in the input's declarations (a type, function, variable, target, or the name of a file in the input), or `Name.member`; a file of another module is named by its repo path, `./<name>` for a file at the root; library names stay unquoted. When an extension point is wired in another module, name that file from "Possible references in other modules" as a repo path in backticks, and only when the line shown there does the wiring (registers, constructs or calls it). Backticks are checked mechanically against the code. Skill names in "Read next" are the only other backticks.
 - Offers groups related types into capabilities; do not list types one by one.
-- Extension points only where the input shows the mechanism (an interface with several implementations, a registry, a sealed hierarchy, a DI factory, a dispatch table). If you cannot see how a new one is picked up, leave it out. Omit the section if there are none.
+[java] - Extension points only where the input shows the mechanism (an interface with several implementations, a registry, a sealed hierarchy, a DI factory, a dispatch table). If you cannot see how a new one is picked up, leave it out. Omit the section if there are none.
+[any code] - Extension points only where the input shows the mechanism (an interface or a table of callbacks with several implementations, a registry, a router or dispatch table, a list a build file or a script runs). If you cannot see how a new one is picked up, leave it out. Omit the section if there are none.
+[any code] - "Possible references in other modules" only shows where a name appears. Never state a dependency or a boundary from it.
 - "Already here" is for helpers and capabilities that look reusable beyond this module, including non-public ones worth promoting. Omit the section if there are none.
 - A skill covers the module when its description is about the module's feature or layer. Leave `skills` empty rather than guess.
 - No reasoning about design choices, no history, no feature or spec numbers.

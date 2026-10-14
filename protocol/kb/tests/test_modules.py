@@ -326,7 +326,7 @@ class Commands(RepoTest):
         self.assertIn("ops (.claude/skills/ops/SKILL.md) - a", out)
         written = []
 
-        def writer(mid, text, model):
+        def writer(mid, text, model, v):
             written.append((mid, text))
             return "---\nsummary: new\n---\nBody.\n"
 
