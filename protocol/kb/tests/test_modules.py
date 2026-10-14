@@ -286,16 +286,17 @@ class Commands(RepoTest):
         self.assertIn("# Module big\npath: big\nholds: the files directly in big, and big/s/\n"
                       "depends on (project): -\ndepends on (external): -\ndepended on by: -\n", text)
         self.assertIn("### s/Q.java\npublic class Q {\n}", text)
-        self.assertIn("### Sources this tool cannot read declarations from (names only)\ns/z.c\ntop.c\n", text)
+        self.assertIn("### s/z.c\n" + "x" * 50 + "\n\n### top.c\n" + "x" * 10 + "\n", text)
+        self.assertNotIn("names only", text)
         self.assertNotIn("## Wiring", text)
 
-    def test_build_module_still_lists_only_kotlin_by_name(self):
+    def test_build_module_reads_every_source_under_src_main(self):
         self.repo({"pom.xml": pom("app"), "src/main/java/app/A.java": JAVA, "src/main/kotlin/B.kt": "class B\n",
                    "src/main/js/c.js": "x\n"})
         mods = kb.modules()
         text = kb.pack(mods["app"], mods, {})
-        self.assertIn("names only)\nsrc/main/kotlin/B.kt\n", text)
-        self.assertNotIn("c.js", text)
+        self.assertIn("### src/main/js/c.js\nx\n\n### src/main/kotlin/B.kt\nclass B\n", text)
+        self.assertNotIn("names only", text)
 
     def test_modules_prints_size(self):
         self.repo({"a/x.py": "x" * 2500, "a/y.py": "x" * 600})

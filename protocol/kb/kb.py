@@ -47,7 +47,17 @@ WIRING_GLOBS = ("META-INF/services/*", "application*.yml", "application*.yaml", 
 WIRING_MAX_LINES = 60
 SKILL_LINES_PER_SKILL = 15
 WIRED_FROM_MAX = 40
+WIRING_NAMES = ("package.json", "deno.json", "jsr.json", "tsconfig.json", "Cargo.toml", "go.mod", "pyproject.toml",
+                "setup.cfg", "requirements.txt", "Pipfile", "composer.json", "Gemfile", "pubspec.yaml")
+WIRING_MAX_FILES = 8
 HEADER_MAX = 220
+SKELETON_DEPTH = 3        # the generic reader shows a line inside at most this many levels, counting the top
+LINE_MAX = 220            # the generic reader cuts a kept line here, and closes its open brackets
+COMMENT_MAX = 160
+CONTAINER_KW = ("class", "struct", "enum", "interface", "union", "trait", "impl", "object", "namespace", "module",
+                "record", "protocol", "extension")
+REFS_PER_FILE = 3
+REF_NAME_MIN = 6
 CARD_MAX_LINES = 60
 CHARS_PER_TOKEN = 2.5     # measured on Java skeletons; chars/4 undercounts code by about 1.6x
 WRITER_OVERHEAD = 1800    # system prompt and harness per call, in tokens
@@ -55,6 +65,8 @@ WRITER_OUTPUT = 1500      # tokens a card takes to write
 PARALLEL = 6
 
 ROOT = KB = CARDS = PACKS = RUNS = PARTS = None
+FILES, RULES = [], []     # the tracked files and parts.txt's patterns, as modules() last read them
+NAMES = {}                # a directory module's names for possible references, by id, since modules() last ran
 
 
 def set_root(root):
@@ -225,9 +237,12 @@ def directory_modules(files, found, rules):
 def modules():
     """Build-file modules first, as Maven and Gradle lay them out; then directory modules for the rest of the source;
     then the parts parts.txt names. Dependencies are known among build-file modules only."""
+    global FILES, RULES
     files = tracked()
     fileset = set(files)
     rules, parts = read_parts()
+    FILES, RULES = files, rules
+    NAMES.clear()
     found = {}
     for d in sorted({f.parent for f in files if f.name in BUILD_FILES}):
         main = d / "src" / "main"
@@ -450,23 +465,224 @@ def proto_skeleton(src):
     return "\n".join(l.rstrip() for l in src.splitlines() if l.strip() and not l.strip().startswith("//"))
 
 
+# ---------- declarations in any language ----------
+
+LICENCE = re.compile(r"copyright|licen[cs]e", re.I)
+PREPROCESSOR = re.compile(r"#\s*(?:if|ifdef|ifndef|else|elif|endif|define|undef|include|pragma|error)\b")
+COMMENT_START = ("//", "--", "*", "<!--", "/*")
+CONTAINER = re.compile(r"\b(?:" + "|".join(CONTAINER_KW) + r")\b")
+
+
+def code_part(line, in_comment):
+    """The line without string literals and comments, and whether a /* */ comment is still open at its end.
+    A string runs from a quote to the same quote on the line, with backslash escapes; a quote never closed on the
+    line is a plain character. A // or # comment starts the line or follows a space or tab."""
+    out, i, n = [], 0, len(line)
+    while i < n:
+        if in_comment:
+            j = line.find("*/", i)
+            if j < 0:
+                return "".join(out), True
+            i, in_comment = j + 2, False
+            continue
+        c = line[i]
+        if line.startswith("/*", i):
+            in_comment, i = True, i + 2
+        elif c in "\"'`":
+            j = i + 1
+            while j < n and line[j] != c:
+                j += 2 if line[j] == "\\" else 1
+            if j < n:
+                i = j + 1
+            else:
+                out.append(c)
+                i += 1
+        elif (line.startswith("//", i) or c == "#") and (i == 0 or line[i - 1] in " \t"):
+            break
+        else:
+            out.append(c)
+            i += 1
+    return "".join(out), in_comment
+
+
+def balance(code):
+    return code.count("(") + code.count("[") - code.count(")") - code.count("]")
+
+
+def indentation(line):
+    n = 0
+    for c in line:
+        if c == " ":
+            n += 1
+        elif c == "\t":
+            n += 4
+        else:
+            break
+    return n
+
+
+def drop_licence(lines):
+    """Lines without the leading comment blocks that hold a copyright or licence, after blank lines and a #! line."""
+    i = 0
+    while i < len(lines) and not lines[i].strip():
+        i += 1
+    if i < len(lines) and lines[i].startswith("#!"):
+        i += 1
+        while i < len(lines) and not lines[i].strip():
+            i += 1
+    if i >= len(lines):
+        return lines
+    first, j = lines[i].strip(), i
+    if first.startswith(("/*", "<!--")):
+        end = "*/" if first.startswith("/*") else "-->"
+        while j < len(lines) and end not in (lines[j].strip()[2:] if j == i else lines[j]):
+            j += 1
+        j += 1
+    else:
+        while j < len(lines) and is_line_comment(lines[j].strip()):
+            j += 1
+    if j > i and LICENCE.search("\n".join(lines[i:j])):
+        return lines[:i] + drop_licence(lines[j:])
+    return lines
+
+
+def is_line_comment(stripped):
+    return (stripped.startswith("#") and not stripped.startswith("#!") and not PREPROCESSOR.match(stripped)) \
+        or stripped.startswith(("//", "--"))
+
+
+def cut(line, in_comment):
+    """A kept line over the limit, cut there and closed: `…` and the brackets its kept part leaves open."""
+    if len(line) <= LINE_MAX:
+        return line
+    kept = line[:LINE_MAX]
+    code, _ = code_part(kept.lstrip().lstrip("#") if PREPROCESSOR.match(kept.lstrip()) else kept, in_comment)
+    opened = []
+    for c in code:
+        if c in "([":
+            opened.append(c)
+        elif c in ")]" and opened:
+            opened.pop()
+    return kept + "…" + "".join(")" if c == "(" else "]" for c in reversed(opened))
+
+
+def comment_text(raw, in_comment, pad):
+    """A kept comment line, as a // or # comment whatever its own markers, so it never opens a comment or a bracket."""
+    stripped = raw.strip()
+    if not in_comment and stripped.startswith(("#", "//")):
+        return (pad + stripped)[: len(pad) + COMMENT_MAX]
+    text = stripped
+    for mark in ("<!--", "/**", "/*", "--", "*"):
+        if text.startswith(mark):
+            text = text[len(mark):]
+            break
+    for mark in ("-->", "*/"):
+        if text.endswith(mark):
+            text = text[: -len(mark)]
+    return pad + "// " + text.strip()[:COMMENT_MAX]
+
+
+def generic_skeleton(src):
+    """Declarations of a source in any language, by indentation: a line is kept while every block it sits in is a
+    container (a header with no `(`, or a type keyword before it) and it sits at most SKELETON_DEPTH levels deep.
+    A body's lines are dropped. A kept line's continuation, while its ( and [ stay open, is kept whole."""
+    out, stack = [], []                 # stack: (header indentation, is container) of each open block
+    in_comment, skip_macro = False, False
+    last = header = None                # the last logical code line, and the last that can head a block: [indent, code]
+    open_brackets, keep_continuation = 0, False
+    run = None                          # the comment run so far: (indentation, its first line with a word character)
+
+    def shown(blocks):
+        return len(blocks) < SKELETON_DEPTH and all(container for _, container in blocks)
+
+    def opened(header):
+        return header[0], not ("(" in header[1] and not CONTAINER.search(header[1].split("(")[0]))
+
+    def flush():
+        """A comment sits in the blocks its indentation puts it in, and in the one the last code line opens when it is
+        indented under it."""
+        nonlocal run
+        if run and run[2] is not None:
+            indent, _, text = run
+            blocks = [b for b in stack if b[0] < indent]
+            if last is not None and header is not None and indent > last[0]:
+                blocks.append(opened(header))
+            if shown(blocks):
+                out.append(text)
+        run = None
+
+    for raw in drop_licence(src.splitlines()):
+        raw = raw.rstrip()
+        if skip_macro:
+            skip_macro = raw.endswith("\\")
+            continue
+        started_in_comment = in_comment
+        code, in_comment = code_part(raw, in_comment)
+        stripped = raw.strip()
+        if open_brackets > 0:
+            open_brackets += balance(code)
+            last[1] += " " + code
+            if keep_continuation:
+                out.append(cut(raw, started_in_comment))
+            continue
+        if not stripped:
+            flush()
+            continue
+        if started_in_comment or is_line_comment(stripped) or stripped.startswith(COMMENT_START):
+            if run is None:
+                run = (indentation(raw), raw[: len(raw) - len(raw.lstrip())], None)
+            if run[2] is None and re.search(r"\w", stripped):
+                run = (*run[:2], comment_text(raw, started_in_comment, run[1]))
+            continue
+        flush()
+        if PREPROCESSOR.match(stripped):
+            if shown(stack):
+                out.append(cut(raw, False))
+            skip_macro = raw.endswith("\\")
+            continue
+        indent = indentation(raw)
+        if last is not None and indent > last[0]:
+            if header is not None:
+                stack.append(opened(header))
+        else:
+            while stack and indent <= stack[-1][0]:
+                stack.pop()
+        keep_continuation = shown(stack)
+        if keep_continuation:
+            out.append(cut(raw, started_in_comment))
+        last = [indent, code]
+        if re.search(r"\w", code):
+            header = last
+        open_brackets = balance(code)
+    flush()
+    return "\n".join(out)
+
+
+def generic_source(f):
+    """A build-file module's file under src/main that the generic reader reads: a source by the code list or the name
+    list, or by an include line, and not excluded."""
+    if any(matches(pat, f) for sign, pat in RULES if sign == "-"):
+        return False
+    return (any(matches(pat, f) for sign, pat in RULES if sign == "+")
+            or f.suffix.lower() in CODE_EXT or f.name in CODE_NAMES or f.name.startswith("Dockerfile."))
+
+
+def skeleton(f):
+    if f.suffix == ".java":
+        return java_skeleton(read(f))
+    if f.suffix == ".proto":
+        return proto_skeleton(read(f))
+    return generic_skeleton(read(f))
+
+
 def declarations(m):
     parts = []
     for f in sorted(m.sources):
-        if f.suffix == ".java":
-            body = java_skeleton(read(f))
-        elif f.suffix == ".proto":
-            body = proto_skeleton(read(f))
-        else:
+        if f.suffix not in DECLARED_EXT and m.kind == "build" and not generic_source(f):
             continue
+        body = skeleton(f)
         if body.strip():
             parts.append(f"### {f.relative_to(m.path)}\n{body}")
-    if m.kind == "build":
-        other = sorted(str(f.relative_to(m.path)) for f in m.sources if f.suffix in (".kt", ".scala", ".groovy"))
-    else:
-        other = sorted(str(f.relative_to(m.path)) for f in m.sources if f.suffix not in DECLARED_EXT)
-    if other:
-        parts.append("### Sources this tool cannot read declarations from (names only)\n" + "\n".join(other))
     return "\n\n".join(parts)
 
 
@@ -533,16 +749,23 @@ def module_header(m, mods):
     ])
 
 
-def wiring(m):
-    res = ROOT / m.path / "src" / "main" / "resources"
-    parts = []
-    for g in WIRING_GLOBS:
-        for f in sorted(res.glob(g)):
-            if f.is_file():
-                lines = [l for l in f.read_text(errors="replace").splitlines() if l.strip() and not l.strip().startswith("#")]
-                more = f"\n… ({len(lines) - WIRING_MAX_LINES} more lines)" if len(lines) > WIRING_MAX_LINES else ""
-                parts.append(f"### {f.relative_to(ROOT / m.path)}\n" + "\n".join(lines[:WIRING_MAX_LINES]) + more)
-    return "\n\n".join(parts)
+def wiring_file(f, root):
+    lines = [l for l in f.read_text(errors="replace").splitlines() if l.strip() and not l.strip().startswith("#")]
+    more = f"\n… ({len(lines) - WIRING_MAX_LINES} more lines)" if len(lines) > WIRING_MAX_LINES else ""
+    return f"### {f.relative_to(root)}\n" + "\n".join(lines[:WIRING_MAX_LINES]) + more
+
+
+def wiring(m, mods):
+    """A build-file module's service registrations and Spring configuration; a directory module's build and manifest
+    files."""
+    if m.kind == "build":
+        res = ROOT / m.path / "src" / "main" / "resources"
+        files = [f for g in WIRING_GLOBS for f in sorted(res.glob(g)) if f.is_file()]
+    else:
+        mains = build_mains(mods)
+        owned = sorted(f for f in FILES if f.name in WIRING_NAMES and owns(m, f, mains) is not None)
+        files = [ROOT / f for f in owned[:WIRING_MAX_FILES]]
+    return "\n\n".join(wiring_file(f, ROOT / m.path) for f in files)
 
 
 def packages(m):
@@ -554,6 +777,22 @@ def importer(pkgs):
     return re.compile(r"^import\s+(?:static\s+)?(?:" + "|".join(re.escape(p) for p in sorted(pkgs)) + r")\.(?:[A-Z]|\*)", re.M)
 
 
+def matching_lines(others, keep_file, pattern_of):
+    """For each (module, files) in `others`, the lines `pattern_of(module)` matches in those of its files whose text
+    `keep_file` accepts: {module id: [(file, line no, line)]}, in order."""
+    found = {}
+    for o, files in others:
+        pattern = pattern_of(o)
+        hits = []
+        for f in files:
+            text = read(f)
+            if keep_file and not keep_file(text):
+                continue
+            hits += [(f, no, line) for no, line in enumerate(text.splitlines(), 1) if pattern.search(line)]
+        found[o.id] = hits
+    return found
+
+
 def wired_from(m, mods, types):
     """Lines in other modules that construct this module's types: where it gets plugged in.
     Only files that import one of this module's packages count, so a same-named type elsewhere does not."""
@@ -562,18 +801,88 @@ def wired_from(m, mods, types):
         return ""
     constructs = re.compile(r"\bnew\s+(" + "|".join(sorted(types, key=len, reverse=True)) + r")\b")
     imports = importer(pkgs)
-    hits = []
-    for other in mods.values():
-        if other is m or other.kind != "build":
-            continue
-        for f in other.sources:
-            if f.suffix != ".java":
-                continue
-            text = read(f)
-            if not imports.search(text):
-                continue
-            hits += [f"- {f}:{no}: {line.strip()[:160]}" for no, line in enumerate(text.splitlines(), 1) if constructs.search(line)]
-    return "\n".join(hits[:WIRED_FROM_MAX])
+    others = [(o, [f for f in o.sources if f.suffix == ".java"]) for o in mods.values() if o is not m and o.kind == "build"]
+    hits = [h for lines in matching_lines(others, imports.search, lambda o: constructs).values() for h in lines]
+    return "\n".join(f"- {f}:{no}: {line.strip()[:160]}" for f, no, line in hits[:WIRED_FROM_MAX])
+
+
+DECLARING = re.compile(r"\b(?:struct|enum|union|typedef|class|interface|type|def|func|fn|function|const|let|var|trait|"
+                       r"impl|module|object|record|protocol|extension|namespace|alias|macro)\s+\**\s*([A-Za-z_]\w*)")
+DEFINE = re.compile(r"^\s*#\s*define\s+([A-Za-z_]\w*)")
+CALLED = re.compile(r"([A-Za-z_]\w*)\s*\(")
+ASSIGNED = re.compile(r"^\s*(?:export\s+)?([A-Za-z_]\w*)\s*(?::(?!:)|=(?!=))")
+TYPEDEF_END = re.compile(r"^\s*\}\s*([A-Za-z_]\w*)\s*;")
+NOT_NAMES = {"if", "for", "while", "switch", "return", "catch", "sizeof", "elif", "else", "until", "case", "when",
+             "export", "default", "import", "from", "public", "private", "protected", "static", "extern", "inline"}
+
+
+def skeleton_names(text):
+    """The names a generic skeleton declares."""
+    names, in_comment = set(), False
+    for line in text.splitlines():
+        d = DEFINE.match(line)
+        if d:
+            names.add(d.group(1))
+        code, in_comment = code_part(line, in_comment)
+        names.update(DECLARING.findall(code))
+        for pattern in (CALLED, ASSIGNED, TYPEDEF_END):
+            hit = pattern.search(code)
+            if hit:
+                names.add(hit.group(1))
+    return names - NOT_NAMES
+
+
+def file_names(m):
+    return {n for f in m.sources for n in (f.name, f.stem)}
+
+
+def own_names(m, mods):
+    """The names of a directory module that no other directory module also has: those its generic skeletons declare,
+    and its files' names with and without extension, each at least REF_NAME_MIN long. Returns (all, file names)."""
+    def names(o):
+        if o.id not in NAMES:
+            declared = set().union(*(skeleton_names(generic_skeleton(read(f))) for f in o.sources
+                                     if f.suffix not in DECLARED_EXT))
+            NAMES[o.id] = {n for n in declared | file_names(o) if len(n) >= REF_NAME_MIN}
+        return NAMES[o.id]
+
+    others = set().union(*(names(o) for o in mods.values() if o.kind == "dir" and o is not m))
+    mine = names(m) - others
+    return mine, mine & file_names(m)
+
+
+def word(names):
+    return re.compile(r"(?<![\w$])(" + "|".join(re.escape(n) for n in sorted(names, key=len, reverse=True)) + r")(?![\w$])")
+
+
+def possible_references(m, mods):
+    """Lines of other modules that hold a name only this directory module has: where it may be used or plugged in.
+    From each file the REFS_PER_FILE lines holding the most of its names, a file name counting 2 more; then the
+    modules by how many of its names their lines hold, one line from each in turn."""
+    names, files = own_names(m, mods)
+    if not names:
+        return ""
+    every, by_file = word(names), word(files) if files else None
+    others = [(o, o.sources) for o in sorted(mods.values(), key=lambda o: o.path.parts)
+              if o is not m and (o.kind == "dir" or by_file)]
+    found = matching_lines(others, None, lambda o: every if o.kind == "dir" else by_file)
+    ranked = []
+    for o, _ in others:
+        pattern = every if o.kind == "dir" else by_file
+        taken = []
+        for f in dict.fromkeys(f for f, _, _ in found[o.id]):
+            lines = [(no, line, set(pattern.findall(line))) for g, no, line in found[o.id] if g == f]
+            best = sorted(lines, key=lambda t: (-(len(t[2]) + 2 * bool(t[2] & files)), t[0]))[:REFS_PER_FILE]
+            taken += [(f, no, line, held) for no, line, held in sorted(best, key=lambda t: t[0])]
+        if taken:
+            ranked.append((-len(set().union(*(held for *_, held in taken))), len(ranked), taken))
+    queues = [taken for *_, taken in sorted(ranked)]
+    picked = []
+    while len(picked) < WIRED_FROM_MAX and any(queues):
+        for q in queues:
+            if q and len(picked) < WIRED_FROM_MAX:
+                picked.append(q.pop(0))
+    return "\n".join(f"- {f}:{no}: {line.strip()[:160]}" for f, no, line, _ in picked)
 
 
 def pack(m, mods, all_skills):
@@ -587,10 +896,12 @@ def pack(m, mods, all_skills):
     if readme.exists():
         sections.append("## README\n" + readme.read_text(errors="replace"))
     sections.append("## Declarations (method bodies dropped)\n" + declarations(m))
-    build = m.kind == "build"
-    for title, body in (("## Constructed in other modules (where it is plugged in)",
-                         wired_from(m, mods, types) if build else ""),
-                        ("## Wiring", wiring(m) if build else "")):
+    if m.kind == "build":
+        links = ("## Constructed in other modules (where it is plugged in)", wired_from(m, mods, types))
+    else:
+        links = ("## Possible references in other modules (lines that hold a name only this module declares; "
+                 "not evidence of a dependency)", possible_references(m, mods))
+    for title, body in (links, ("## Wiring", wiring(m, mods))):
         if body:
             sections.append(f"{title}\n{body}")
     if all_skills:
