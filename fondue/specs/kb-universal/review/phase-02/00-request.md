@@ -1,0 +1,22 @@
+- **Subject:** git diff 370d6ff..9ca6f64
+- **Build:** python3 -m unittest discover -s protocol/kb/tests - green, 41 tests passed
+- **Gates:** `$S` = <scratch>/gate, the clones of phase 1's Gate, `$S/fondue` re-cloned at 9ca6f64. Run from the repository root.
+  - **G1** the phase file's snippet (with `kb.code_part` and `kb.balance`), per sample: c `0 []`; shell `0 []`; fondue `0 []`; java-vue `0 []`; java `0 []`; hono `0 []`.
+  - **G2** raw / skeleton chars over the same files: c 1,175,236 / 216,470 = 5.43 (floor 4); java-vue 313,592 / 88,743 = 3.53 (3); hono 923,747 / 429,566 = 2.15 (2); fondue 64,233 / 9,085 = 7.07 (5); shell 23,405 / 12,426 = 1.88 (1.5). java, no floor: 2.25.
+  - **G3** `kb.py pack` of every module on each clone:
+    - every directory module's header reads `depends on (project): -` and `depended on by: -`: c 12, shell 2, fondue 2, java-vue 5, java 3, hono 14 directory modules, none otherwise.
+    - shell `provision`: `Makefile:36` (`./provision/host-kubeconfig.sh`), `Makefile:50` (`./provision/host-docker-registry.sh`), `Vagrantfile:69` (`path: "provision/install-k3s.sh"`), `Vagrantfile:80` (`path: "provision/install-docker-registry.sh"`).
+    - c `include`: lines from `examples/bootstrap_server` 4, `examples/client` 4, `examples/lightclient` 4, `examples/server` 3, `examples/shared` 4.
+    - java-vue `<p>-demo-servers-shared-webapp`: 20 lines from `<p>-demo-bsserver/webapp`, 20 from `<p>-demo-server/webapp`.
+    - hono `src-router`: `src/hono.ts:3`, `:4`, `:31` (`routers: [new RegExpRouter(), new TrieRouter()]`), `src/preset/quick.ts:3`, `:8`, `:21`, `src/preset/tiny.ts:3`, `:8`, `:18` (`this.router = new PatternRouter()`).
+  - **G4** phase 1's Java gate script - `IDENTICAL`.
+
+Beyond the phase file, for the reviewer:
+- A kept comment line whose marker is not `#` or `//` (inside `/* */`, or starting `/*`, `*`, `<!--`, `--`) is written as `// <text>` with its markers stripped, as `java_skeleton` writes a Javadoc sentence. Kept verbatim, a `/** Foo (e.g.` line would leave the skeleton inside an open comment, and a ` * foo (` line would open a bracket in the skeleton's code part. A line starting `/*` counts as a comment line, with the lines decision 1 lists.
+- A comment run is placed in the blocks its indentation puts it in, and also in the block the last code line opens when the comment is indented under it, so a comment at the top of a function body is dropped with the body.
+- Every leading licence block is dropped, not only the first: the sample C project's files carry two in a row.
+- A preprocessor line's cut closes the brackets of the text after its `#`, since its whole code part is a comment.
+- A file name without its extension is `Path.stem` (`install-k3s.sh` gives `install-k3s`).
+- A referencing module's rank counts the distinct names in the lines taken from it (at most 3 a file).
+- `modules()` keeps the tracked files, the `parts.txt` patterns, and a cache of each directory module's names in module globals (`FILES`, `RULES`, `NAMES`), which `wiring`, `declarations` and the possible references read.
+- Two Phase 1 tests that asserted the names-only list now assert the files' skeletons.
