@@ -144,7 +144,7 @@ Every ruling, at any stage, in the User's own words. Appended and never rewritte
 ```
 ## <YYYY-MM-DD> <state>[ | settles <file>#<id>]
 
-**Asked:** <the question put to the User>
+**Asked:** <the decision put to the User: a question's **Decision:** line, or a deadlocked finding's title>
 
 **Ruling:** <the User's words>
 
@@ -228,7 +228,7 @@ Findings and the verdict. Nothing else: no list of what was checked and found fi
 
 Verdict: changes-requested
 ```
-A finding that re-asserts one from an earlier review of the topic carries `(re <file>#<id>)`, naming the review that first raised it. That origin is the finding's **thread** (see Escalation). A finding without it is new.
+A finding that re-asserts one from an earlier review of the topic carries `(re <file>#<id>)`, naming the review that first raised it. That origin is the finding's **thread** (see Escalation). A finding without it is new. A re-asserted finding is written for the User (Writing for the User), because it is the reviewer's side if the thread deadlocks.
 
 The verdict line is one of:
 * `Verdict: approved <subject>` - no Blockers. Nits are not applied and no answer follows. A reviewer who wants a Nit applied lists it under `approved-with-fixes`.
@@ -238,14 +238,15 @@ The verdict line is one of:
 A process skill may add an outcome to a closing verdict, e.g. `Verdict: approved <subject> | exit`.
 
 ### review/<topic>/NN-answer.md
-The author answers every finding by its id, one line each where possible. Prose only for a challenge, or for a fix that departs from the proposal, and only as much as the reviewer needs to judge it.
+The author answers every finding by its id, one line each where possible. Prose only for a challenge, or for a fix that departs from the proposal, and only as much as the reviewer needs to judge it. A `deadlocked` or `question` entry is read by the User, so it is written for the User (Writing for the User) and is as long as that takes.
 ```
 - #1 accepted, fixed in <file or commit>
 - #2 accepted, fixed differently in <file or commit>: <why>
 - #3 challenged: <position, with its anchor>
 - #4 declined (Nit)
-- #5 deadlocked: <position, with its anchor>
-- #6 question: <the decision the User must take, with its anchor>
+- #5 deadlocked: <position, written for the User>
+- #6 question:
+  <the question, in its shape (User questions)>
 
 **Build:** <command> - green, <n> tests passed        (code topics)
 
@@ -275,31 +276,73 @@ A deadlock is a disagreement about **whether the work is right**, and only one s
 
 A finding the author accepted is not on that path. If the reviewer re-asserts it, the author fixes it again or challenges it, and a challenge starts the sequence. A disagreement about **what the spec should deliver** is never a deadlock: it is a User question, asked the first time it appears. Why: a scope question argued as a deadlock reaches the User rounds late, after both sides have spent those rounds on a decision neither of them can take.
 
-The Arbiter sends the User exactly this, and the User reads the files:
+The Arbiter sends the User exactly this:
 ```
-CONFLICT on <thread> in review/<topic>/: positions in <files from the reply>. Your ruling?
+CONFLICT on <thread> in review/<topic>/
+
+Reviewer, <file>#<id>:
+<the last finding on the thread, quoted>
+
+Author, <file>#<id>:
+<the deadlocked entry, quoted>
+
+Files: <files from the reply>
+Your ruling?
 ```
-The Arbiter neither summarises, quotes nor rules. After the ruling, the author gets the next turn in the same Answer state and writes a new answer applying the ruling, with a normal verdict.
+The Arbiter quotes each side verbatim and adds nothing of its own: no summary, no framing, no ruling. Why: a summary chooses what matters and how the choice is put, so the User would be ruling on the Arbiter's framing, not on the two positions. Each side states only its own position, never the other's. After the ruling, the author gets the next turn in the same Answer state and writes a new answer applying the ruling, with a normal verdict.
 
 A **new** finding on new evidence is never a deadlock, however late it arrives.
 
 ### User questions
 Some decisions are the User's whatever the evidence says: **what the spec delivers** (its goal, its scope, what counts as done), anything a ruling already settled, and **a change to an approved artifact** (the process skill names which artifacts carry an approval). A role that meets one neither decides it nor argues it across rounds. The question is asked the first time it appears, and it is always on disk:
-* **an author** who meets one in a finding, whether they would fix, challenge or decline it, answers every other finding, writes `#<id> question: <the decision, with its anchor>`, ends with `Verdict: question <refs>` and replies QUESTION. A decision an author meets outside any finding goes into `question.md`, as in a Draft turn.
+* **an author** who meets one in a finding, whether they would fix, challenge or decline it, answers every other finding, writes the question as its `#<id> question:` entry, ends with `Verdict: question <refs>` and replies QUESTION. A decision an author meets outside any finding goes into `question.md`, as in a Draft turn.
 * **a reviewer** never replies QUESTION. They write the finding as usual, say in it that the decision is the User's, and end with `changes-requested` whatever its severity, so that an answer follows. The author then asks. Why: a review that stopped on a question would leave the author's next turn with no review to answer.
-* **a role in a turn with no verdict** (a Draft) writes nothing that the decision shapes. It writes the decision and its anchor into `question.md` at the spec root and replies QUESTION.
+* **a role in a turn with no verdict** (a Draft) writes nothing that the decision shapes. It writes the question into `question.md` at the spec root and replies QUESTION. A `question.md` with more than one question heads each with `## <n>`.
+
+Every question has this shape, written for the User (Writing for the User):
+```
+**Decision:** <one sentence: what the User must choose>
+
+**Why it's yours:** <what makes it the User's: scope, an earlier ruling, or a change to an approved artifact, and which>
+
+**Context:** <what the User needs to know to rule, in a few sentences, with anchors>
+
+**Options:**
+1. <option> - <what it means in practice: what gets built or not, what it costs, what it rules out later>
+2. ...
+
+**Recommendation:** <the role's own view, and why>        (optional)
+```
+Two to four options. When a finding raised the question, the reviewer's proposed solution is one of them, put as fairly as the role's own. Leaving things as they are is an option when it is one. The recommendation belongs to a question only, never to a deadlock, where each position already is one side's recommendation.
 
 A role that writes code ends a QUESTION turn at its last green commit. An answer may hold several questions; the verdict, the reply and the Arbiter's message list them all.
 
 **An agreed change is a question too.** When the author and the reviewer agree that an approved artifact must change, the author asks the User to approve it as an amendment, unless the process skill routes that change elsewhere (spec: an approach that cannot work reopens). The approved file is not edited, unless the process skill says otherwise for it: the ruling amends it, and every role reads the amendment in `99-user.md`. Why: an approved file carries its approval, so editing it would make it say something nobody approved. And redoing the work for a change both sides agree on throws away everything the change does not touch.
 
-The Arbiter sends the User exactly this, and the User reads the files:
+The Arbiter sends the User exactly this:
 ```
-QUESTION in <state>: <refs from the reply>. Evidence in <paths from the reply>. Your ruling?
-```
-The Arbiter neither summarises nor rules. It records one ruling per question with `settles <file>#<id>`, or moves the text of `question.md` into the **Evidence:** of the first of its rulings and deletes the file. Once every question has a ruling, the same role gets the next turn in the same state. An author writes a new answer that applies the rulings, as after a CONFLICT, with a normal verdict. A Draft turn resumes its work.
+QUESTION in <state>
 
-When one answer holds both a deadlock and a question, the author replies CONFLICT and appends `| question <refs>` to the line. The Arbiter puts both to the User.
+<ref>:
+<the question, quoted>
+
+<one more block per ref>
+
+Files: <evidence paths from the reply>
+Your ruling?
+```
+The Arbiter quotes each question verbatim and adds nothing of its own, as at a CONFLICT. It records one ruling per question with `settles <file>#<id>`, or moves the text of `question.md` into the **Evidence:** of the first of its rulings and deletes the file. Once every question has a ruling, the same role gets the next turn in the same state. An author writes a new answer that applies the rulings, as after a CONFLICT, with a normal verdict. A Draft turn resumes its work.
+
+When one answer holds both a deadlock and a question, the author replies CONFLICT and appends `| question <refs>` to the line. The Arbiter puts both to the User in one message: the CONFLICT, then each question block.
+
+### Writing for the User
+Roles write for each other in shorthand. The reader has the files open and the spec in context, so an anchor and a few words are enough. The User reads cold, often in the middle of something else, with none of that context. So everything the User rules on (a question, and each side of a deadlock) is written for a person, and must be understood on its own, without opening a file:
+* **Say what the problem is, not where it is.** "See plan.md#3" or "as in 02-review.md#4" is a reference, not an explanation. The anchor stays as the evidence for a sentence that already says the thing; it never stands in for it.
+* **Name things by what they are.** A term coined in the spec, a finding or phase number, or a class or module the User may not know gets a few words of explanation where it first appears.
+* **Say what each choice means in practice**: what gets built or not, what it costs, what it rules out later.
+* **Plain, short sentences.** Long enough to rule from and no longer: a screen, not a document.
+
+Why: anchors and references are what the roles need, but a User who must open five files to understand a question either rules on a guess or spends the time the process exists to save. A question is asked well only when the person answering it can follow it.
 
 ### Advisors
 At a CONFLICT, at a QUESTION, or at any other time, the User may ask the Arbiter for advisors: second opinions from sessions outside the spec, on an agent, model and effort the User names. An advisor:
@@ -316,7 +359,7 @@ The Arbiter saves each advisor's final message verbatim to `advice/NN-<agent>-<m
 
 ## Roles every process has
 * **User** - owns the spec. Writes what the process starts from, picks the roster, rules on escalations, questions and blockers.
-* **Arbiter** - runs the process: spawns roles, sends turns, keeps `current-state.txt`, `stats.md` and `99-user.md`, commits the spec, and goes to the User for a CONFLICT, a QUESTION, a BLOCKED or a User decision. On its own account it never reads, analyses or judges what a role produced: the reply line is all it needs. It never rules on the merits, and it never builds or tests. A finished turn is not news to the User, because the artifacts already say what happened. The User may hold this role, but an AI is preferred. One session for the whole spec.
+* **Arbiter** - runs the process: spawns roles, sends turns, keeps `current-state.txt`, `stats.md` and `99-user.md`, commits the spec, and goes to the User for a CONFLICT, a QUESTION, a BLOCKED or a User decision. On its own account it never reads, analyses or judges what a role produced: the reply line is all it needs, apart from the text it quotes to the User at a CONFLICT or a QUESTION. It never rules on the merits, and it never builds or tests. A finished turn is not news to the User, because the artifacts already say what happened. The User may hold this role, but an AI is preferred. One session for the whole spec.
 
   **When the User asks, the Arbiter researches for the User.** It reads the artifacts, the code and the sources, runs read-only commands, may spawn read-only research sessions, and answers the User directly. What it finds reaches the roles only through the User: in a ruling, or in a starting document the User amends. It never writes into a role's artifact or message. Why: the User's questions steer the spec and deserve real research, while the roles still see nothing but what the User put on the record, so the Arbiter stays neutral towards them.
 

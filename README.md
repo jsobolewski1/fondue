@@ -176,10 +176,11 @@ Both skills run on one engine, [`protocol/engine.md`](protocol/engine.md):
   contradicts.
 - **"It doesn't exist" must be shown failing.** An empty search only shows where you didn't look.
 - **Fixed verdicts.** A fix the reviewer can state exactly is approved unseen, which saves a round.
-- **Deadlocks and questions come to you.** A deadlock gives you both positions in files. A decision
+- **Deadlocks and questions come to you.** A deadlock gives you both positions side by side. A decision
   that is yours (scope, or a change to an approved plan both sides agree on) comes to you as a question
-  the first time it appears, not rounds later. Ask for advisors on other models if you want a second
-  opinion. Your ruling is **binding**.
+  the first time it appears, not rounds later, with its options and what each one means. Both are written
+  for you to rule on without opening a file, and the Arbiter quotes them unchanged. Ask for advisors on
+  other models if you want a second opinion. Your ruling is **binding**.
 - **Agents share nothing but files.** A message says only whose turn it is.
 
 <details>
