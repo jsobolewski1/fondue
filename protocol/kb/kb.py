@@ -21,6 +21,7 @@ import concurrent.futures
 import datetime
 import fnmatch
 import json
+import os
 import re
 import subprocess
 import sys
@@ -1161,13 +1162,20 @@ def declaration_map(mods):
     return declared, member_text
 
 
+def own_path(m, name):
+    """Whether name is a path, relative to m's directory, of a file or directory inside it: the way the pack's
+    headings name a module's files."""
+    rel = Path(os.path.normpath(m.path / name))
+    return ".." not in rel.parts and within(rel, m.path) and rel != m.path and (ROOT / rel).exists()
+
+
 def dead_any_code(m, mods, body, declared, member_text, all_skills):
     """The names in backticks of a card for code of any language that the code does not have."""
     own_files = {f.name for f in m.sources} | {f.name for f in wiring_files(m, mods)}
     dead = set()
     for name in re.findall(r"`([^`\n]+)`", body):
         if "/" in name:
-            if PATH_LIKE.match(name) and not (ROOT / name).exists():
+            if PATH_LIKE.match(name) and not (ROOT / name).exists() and not own_path(m, name):
                 dead.add(name)
         elif name in all_skills or name in mods or name in own_files:
             continue

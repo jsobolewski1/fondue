@@ -105,6 +105,14 @@ class DeadNames(RepoTest):
         r.commit()
         self.assertTrue(self.notes("w1").endswith("dead: ./package.json, package.json"), self.notes("w1"))
 
+    def test_paths_relative_to_the_module(self):
+        r = self.repo({"web/app/src/main.js": "export const a = 1\n", "web/app/src/views/v.js": "export const v = 1\n",
+                       "lib/x.js": "export const x = 1\n", "top.sh": "echo\n"})
+        self.card(r, "web", "`app/src/main.js`, `./app/src/views`, `web/app/src/main.js`, `../lib/x.js`, "
+                            "`app/src/gone.js`, `../../top.sh`.")
+        self.assertTrue(self.notes("web").endswith("dead: ../../top.sh, ../lib/x.js, app/src/gone.js"),
+                        self.notes("web"))
+
     def test_skills_and_module_ids_are_skipped(self):
         r = self.repo({"w1/app.ts": "export const a = 1\n", "w2/app2.ts": "export const b = 1\n",
                        ".claude/skills/ops/SKILL.md": "---\ndescription: ops\n---\nx\n"})
