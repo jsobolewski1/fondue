@@ -7,7 +7,12 @@ Read this file when you write or update the knowledge base. A role that only rea
 ## What it holds, and what it does not
 * **index.md** - one entry per module: a summary of what it offers, with other names for the same capability, and the skills that cover it. Above them, every project skill with its description. A script generates it from the cards, so it is never edited by hand. It stays small enough to read whole, about 5k tokens for 30-40 modules. Why read it whole: you cannot search for something you do not know exists.
 * **cards/<module>.md** - one per module, at most 60 lines: purpose, what it offers, its extension points with the file that wires a new one in, what not to rebuild, its boundaries, and the skills to read next. `card-writer.md` next to this file is the card's shape and rules.
-* **parts.txt** - optional, written by the User: a module too broad for one card gets a card per package directory, one `<card id> <directory>` per line. Each part is a module to every command; the module's own card keeps what is left, and disappears when nothing is. A build file depends on the whole module, so a part's users are the modules that import its packages, and the parts of one module use each other the same way. Why not split the module instead: how the code is built is the project's decision, not the knowledge base's.
+* **parts.txt** - optional, written by the User, one line each:
+  - `<card id> <directory>`: a module too broad for one card gets a card per directory inside it, e.g. a package directory. Each part is a module to every command; the module's own card keeps what is left, and disappears when nothing is. A build file depends on the whole module, so a part's users are the modules that import its packages, and the parts of one module use each other the same way. Why not split the module instead: how the code is built is the project's decision, not the knowledge base's.
+  - `- <pattern>`: what the pattern matches is not source, e.g. `- benchmarks` or `- *.min.js`. A directory left with no source has no module.
+  - `+ <pattern>`: what the pattern matches is source, whatever its extension and wherever it sits, e.g. `+ *.zig` for a language `kb.py` does not list. `-` wins over `+`.
+
+  A pattern is a path relative to the project root, a directory and everything under it, or a glob over the whole path whose `*` also crosses `/`. `#` starts a comment.
 
 The split with project skills is **one fact, one home.** A card says what exists and where. A skill says why and how. A card that starts explaining has content that belongs in a skill.
 
@@ -20,7 +25,7 @@ A card is never an inventory: signatures, file lists and call sites are what gre
 
 | command | what it does |
 |---|---|
-| `modules` | lists the modules: a directory with a build file and sources under `src/main`, and the parts `parts.txt` names |
+| `modules` | lists the modules, each with its file count and its size in thousands of bytes. A **build-file module** is a directory with a Maven or Gradle build file and sources under `src/main`. A **directory module** holds the source no build file claims: the repository root and each build-file module's directory split into their first-level directories, one module each, with the files directly in them as a module of their own; a directory over 250k bytes of source splits the same way one level down, and there a subdirectory under 5k stays with its parent. Source is a code file by extension or name, outside test, vendored, generated and hidden directories and `fondue/`. Then the parts `parts.txt` names |
 | `estimate [<id>... \| --since <sha>]` | the tokens and cost of writing those cards (default: all), before spending them |
 | `write <id>... \| --all` | writes cards, then the index |
 | `write --since <sha>` | writes the cards of modules changed since `<sha>` and of modules with no card, removes the cards of modules that are gone, then the index |

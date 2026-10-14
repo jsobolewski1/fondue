@@ -19,6 +19,7 @@ Everything except `write` is mechanical and spends no tokens.
 import argparse
 import concurrent.futures
 import datetime
+import fnmatch
 import json
 import re
 import subprocess
@@ -30,6 +31,17 @@ HERE = Path(__file__).resolve().parent
 CARD_WRITER = HERE / "card-writer.md"
 
 BUILD_FILES = ("pom.xml", "build.gradle", "build.gradle.kts")
+CODE_EXT = {".c", ".h", ".cc", ".cpp", ".cxx", ".hh", ".hpp", ".hxx", ".m", ".mm", ".cs", ".go", ".rs", ".swift",
+            ".kt", ".kts", ".scala", ".groovy", ".java", ".proto", ".js", ".mjs", ".cjs", ".jsx", ".ts", ".mts", ".cts",
+            ".tsx", ".vue", ".svelte", ".py", ".rb", ".php", ".pl", ".pm", ".lua", ".sh", ".bash", ".zsh", ".ksh", ".ps1",
+            ".dart", ".ex", ".exs", ".erl", ".hs", ".clj", ".cmake", ".tf", ".zig", ".nim", ".jl", ".r"}
+CODE_NAMES = {"Makefile", "makefile", "GNUmakefile", "Dockerfile", "Containerfile", "Vagrantfile", "Rakefile",
+              "Justfile", "justfile", "CMakeLists.txt", "Jenkinsfile"}
+TEST_DIRS = {"test", "tests", "__tests__", "testing", "e2e", "spec"}
+VENDOR_DIRS = {"vendor", "third_party", "third-party", "node_modules", "dist", "build", "target", "out", "generated"}
+TEST_FILES = ("test_*.py", "*_test.*", "*.test.*", "*.spec.*", "*_spec.rb", "*Test.java", "*Tests.java")
+BUDGET = 250_000          # bytes of source: a directory over it splits into its subdirectories
+FLOOR = 5_000             # bytes of source: a subdirectory under it, after a size split, stays with its parent
 DECLARED_EXT = {".java", ".proto"}
 WIRING_GLOBS = ("META-INF/services/*", "application*.yml", "application*.yaml", "application*.properties")
 WIRING_MAX_LINES = 60
@@ -63,15 +75,21 @@ def read(path):
 # ---------- modules ----------
 
 class Module:
-    """A card's unit: a build module, or a part of one that parts.txt gives its own card.
-    `main` is the directory whose changes count against the card, `build` the directory of the build file,
-    `artifact` the name other build files depend on it by. A part shares its module's build and artifact."""
-    def __init__(self, path, mid, deps, sources, artifact, main=None, build=None, parent=None):
+    """A card's unit. A build-file module is a directory with a build file and sources under src/main (kind "build").
+    A directory module holds source no build file claims (kind "dir"): a whole directory (a group), or the files
+    directly in one together with the small subdirectories folded into them (a residual). A part is a directory inside
+    either that parts.txt gives a card of its own, of its module's kind.
+    `main` is the directory whose changes count against a build-kind card, `build` the directory of the build file,
+    `artifact` the name other build files depend on it by. A build-kind part shares its module's build and artifact;
+    a directory module is its own build and artifact, and depends on nothing."""
+    def __init__(self, path, mid, deps, sources, artifact, main=None, build=None, parent=None, kind="build"):
         self.path, self.id, self.deps, self.sources, self.artifact = path, mid, deps, sources, artifact
         self.main = main or path / "src" / "main"
         self.build = build or path
         self.parent = parent
-        self.parts, self.dependents, self.excluded, self.siblings_used = [], [], [], []
+        self.kind = kind
+        self.residual = False
+        self.parts, self.dependents, self.excluded, self.siblings_used, self.folded = [], [], [], [], []
 
 
 def pom_info(pom):
@@ -85,9 +103,131 @@ def pom_info(pom):
     return (aid.text.strip() if aid is not None else pom.parent.name), deps
 
 
+def tracked():
+    """Every tracked file, named as git stores it (-z: never quoted). A submodule is a directory, not a file."""
+    paths = {}
+    for entry in git("ls-files", "-s", "-z").split("\0"):
+        if entry:
+            meta, path = entry.split("\t", 1)
+            if meta.split()[0] != "160000":
+                paths[path] = None
+    return [Path(p) for p in paths]
+
+
+def file_size(f):
+    try:
+        return (ROOT / f).stat().st_size
+    except OSError:
+        return 0
+
+
+def within(p, d):
+    """p is the directory d or anything below it."""
+    return p == d or d in p.parents
+
+
+def read_parts():
+    """fondue/kb/parts.txt, written by the User, one line each:
+      `<card id> <directory>`  a directory inside a module gets a card of its own (split_parts);
+      `- <pattern>`            what the pattern matches is not a source;
+      `+ <pattern>`            what the pattern matches is a source, whatever its kind.
+    A pattern is a path, a directory, or a glob over the whole path whose `*` also crosses `/`.
+    Returns the patterns as (sign, pattern) and the parts as (line number, card id, directory)."""
+    rules, parts = [], []
+    if not PARTS.exists():
+        return rules, parts
+    for no, line in enumerate(PARTS.read_text().splitlines(), 1):
+        line = line.split("#", 1)[0].strip()
+        if not line:
+            continue
+        words = line.split()
+        if len(words) != 2:
+            sys.exit(f"{PARTS.relative_to(ROOT)}:{no}: expected `<card id> <directory>`, `- <pattern>` or `+ <pattern>`")
+        if words[0] in ("-", "+"):
+            rules.append((words[0], words[1].rstrip("/")))
+        else:
+            parts.append((no, words[0], words[1]))
+    return rules, parts
+
+
+def matches(pattern, p):
+    s = p.as_posix()
+    return s == pattern or s.startswith(pattern + "/") or fnmatch.fnmatchcase(s, pattern)
+
+
+def is_source(f, mains, rules):
+    """Whether a tracked file outside the build-file modules is a directory module's source: the first rule that
+    applies decides."""
+    if len(f.parts) > 1 and f.parts[0] == "fondue":
+        return False
+    if any(d in mains for d in f.parents):
+        return False
+    if any(matches(pat, f) for sign, pat in rules if sign == "-"):
+        return False
+    if any(matches(pat, f) for sign, pat in rules if sign == "+"):
+        return True
+    if any(d.startswith(".") or d in TEST_DIRS or d in VENDOR_DIRS for d in f.parts[:-1]):
+        return False
+    if any(fnmatch.fnmatchcase(f.name, t) for t in TEST_FILES):
+        return False
+    return f.suffix.lower() in CODE_EXT or f.name in CODE_NAMES or f.name.startswith("Dockerfile.")
+
+
+def directory_modules(files, found, rules):
+    """The source no build-file module claims, as directory modules added to `found`.
+    The repository root and every build-file module's directory are roots. Splitting a directory makes a residual of
+    the files directly in it, and groups the rest by their first directory below it. A child group is split the same
+    way when it is a root or holds one (a structural split) or when its source exceeds BUDGET (a size split); after a
+    size split, a child under FLOOR is folded into the residual; any other child is one group module."""
+    roots = {m.path for m in found.values()}
+    mains = {m.main for m in found.values()}
+    srcs = [f for f in files if is_source(f, mains, rules)]
+    sizes = {f: file_size(f) for f in srcs}
+    made = []
+
+    def holds_root(d):
+        return any(within(r, d) for r in roots)
+
+    def split(d, by_size, group):
+        own, folded, children = [], [], {}
+        for f in group:
+            rel = f.parts[len(d.parts):]
+            if len(rel) == 1:
+                if f.name not in BUILD_FILES:
+                    own.append(f)
+            else:
+                children.setdefault(d / rel[0], []).append(f)
+        for c, cf in sorted(children.items()):
+            size = sum(sizes[f] for f in cf)
+            if holds_root(c):
+                split(c, False, cf)
+            elif size > BUDGET:
+                split(c, True, cf)
+            elif by_size and size < FLOOR:
+                own += cf
+                folded.append(c)
+            else:
+                made.append((c, cf, [], False))
+        if own:
+            made.append((d, own, folded, True))
+
+    split(Path("."), False, srcs)
+    for path, sources, folded, residual in sorted(made, key=lambda t: t[0].parts):
+        base = "root" if path == Path(".") else str(path).replace("/", "-")
+        mid, n = base, 1
+        while mid in found:
+            mid, n = f"{base}-dir{n if n > 1 else ''}", n + 1
+        m = Module(path, mid, [], sorted(sources), mid, main=path, build=path, kind="dir")
+        m.residual, m.folded = residual, folded
+        found[mid] = m
+
+
 def modules():
-    """A module is a directory with a build file and tracked files under src/main."""
-    files = [Path(p) for p in git("ls-files").splitlines()]
+    """Build-file modules first, as Maven and Gradle lay them out; then directory modules for the rest of the source;
+    then the parts parts.txt names. Dependencies are known among build-file modules only."""
+    files = tracked()
+    fileset = set(files)
+    rules, parts = read_parts()
     found = {}
     for d in sorted({f.parent for f in files if f.name in BUILD_FILES}):
         main = d / "src" / "main"
@@ -95,14 +235,16 @@ def modules():
         if not srcs:
             continue
         pom = d / "pom.xml"
-        mid, deps = pom_info(pom) if pom in files else (d.name, [])
+        mid, deps = pom_info(pom) if pom in fileset else (d.name, [])
         found[mid] = Module(d, mid, deps, srcs, mid)
-    split_parts(found)
-    for m in found.values():
+    directory_modules(files, found, rules)
+    split_parts(found, parts, files)
+    build = [m for m in found.values() if m.kind == "build"]
+    for m in build:
         for aid, scope in m.deps:
             if scope == "test":
                 continue
-            for target in found.values():
+            for target in build:
                 if target.artifact == aid and target is not m:
                     target.dependents.append(m.id)
     narrow_split(found)
@@ -112,53 +254,86 @@ def modules():
 def narrow_split(found):
     """A build file depends on a whole module, but a module that depends on a split one uses only the parts it imports.
     The parts of one module depend on each other the same way."""
-    split = [m for m in found.values() if m.parent or m.parts]
+    build = [m for m in found.values() if m.kind == "build"]
+    split = [m for m in build if m.parent or m.parts]
     if not split:
         return
-    texts = {m.id: [read(f) for f in m.sources if f.suffix == ".java"] for m in found.values()}
+    texts = {m.id: [read(f) for f in m.sources if f.suffix == ".java"] for m in build}
     for m in split:
         pkgs = packages(m)
         imports = importer(pkgs) if pkgs else None
-        m.dependents = sorted(o.id for o in found.values()
+        m.dependents = sorted(o.id for o in build
                               if o is not m and imports and any(imports.search(t) for t in texts[o.id]))
     for m in split:
         m.siblings_used = sorted(s.id for s in split if s.artifact == m.artifact and m.id in s.dependents)
 
 
-def split_parts(found):
-    """parts.txt gives a directory inside a module a card of its own: one `<card id> <directory>` per line.
-    The part takes the sources under its directory; the module keeps the rest, and loses its card if none are left."""
-    if not PARTS.exists():
-        return
-    for no, line in enumerate(PARTS.read_text().splitlines(), 1):
-        line = line.split("#", 1)[0].strip()
-        if not line:
-            continue
-        try:
-            pid, rel = line.split()
-        except ValueError:
-            sys.exit(f"{PARTS.relative_to(ROOT)}:{no}: expected `<card id> <directory>`")
+def split_parts(found, parts, files):
+    """A part takes the sources under its directory; the module that owns that directory keeps the rest, and loses
+    its card if none are left."""
+    where = PARTS.relative_to(ROOT)
+    mains = build_mains(found)
+    for no, pid, rel in parts:
         d = Path(rel)
-        parent = next((m for m in found.values() if m.main in d.parents or m.main == d), None)
+        parent = next((o for f in files if d in f.parents for o in [owner(f, found, mains)] if o), None)
         if parent is None or pid in found:
-            sys.exit(f"{PARTS.relative_to(ROOT)}:{no}: " + (f"`{pid}` is taken" if parent else f"{rel} is in no module's src/main"))
+            sys.exit(f"{where}:{no}: " + (f"`{pid}` is taken" if parent else f"{rel} is in no module"))
         srcs = [f for f in parent.sources if d in f.parents]
         if not srcs:
-            sys.exit(f"{PARTS.relative_to(ROOT)}:{no}: {rel} holds none of {parent.id}'s sources")
+            sys.exit(f"{where}:{no}: {rel} holds none of {parent.id}'s sources")
         parent.sources = [f for f in parent.sources if d not in f.parents]
         parent.parts.append(pid)
         parent.excluded.append(d)
-        found[pid] = Module(d, pid, parent.deps, srcs, parent.artifact, main=d, build=parent.build, parent=parent.id)
+        if parent.kind == "build":
+            found[pid] = Module(d, pid, parent.deps, srcs, parent.artifact, main=d, build=parent.build, parent=parent.id)
+        else:
+            found[pid] = Module(d, pid, [], srcs, pid, main=d, build=d, parent=parent.id, kind="dir")
     for mid in [mid for mid, m in found.items() if not m.sources]:
         del found[mid]
 
 
-def module_of(path, mods):
-    best = None
+def build_mains(mods):
+    """The src/main of every build-file module that is not a part: no directory module owns anything under one."""
+    return [m.main for m in mods.values() if m.kind == "build" and not m.parent]
+
+
+def owns(m, p, mains):
+    """The directory through which module m owns the tracked path p, or None. Every path, source or not, in a module's
+    scope counts as a change to it."""
+    if any(within(p, d) for d in m.excluded):
+        return None
+    if m.kind == "build":
+        return m.main if m.main in p.parents else None
+    if any(mn in p.parents for mn in mains):
+        return None
+    if not m.residual:
+        return m.path if m.path in p.parents else None
+    if p.parent == m.path and p.name not in BUILD_FILES:
+        return m.path
+    return next((f for f in m.folded if f in p.parents), None)
+
+
+def owner(p, mods, mains):
+    """The module that owns p; where more than one does, the one owning it through the deepest directory (a part)."""
+    best, depth = None, -1
     for m in mods.values():
-        if m.path in path.parents and (best is None or len(m.path.parts) > len(best.path.parts)):
-            best = m
+        root = owns(m, p, mains)
+        if root is not None and len(root.parts) > depth:
+            best, depth = m, len(root.parts)
     return best
+
+
+def pathspecs(m, mods):
+    """git pathspecs naming exactly what m owns."""
+    excluded = [f":(exclude){d}" for d in m.excluded]
+    if m.kind == "build":
+        return [str(m.main), *excluded]
+    mains = build_mains(mods)
+    if not m.residual:
+        return [str(m.path), *(f":(exclude){mn}" for mn in mains if m.path in mn.parents), *excluded]
+    here = ":(glob)*" if m.path == Path(".") else f":(glob){m.path}/*"
+    return [here, *map(str, m.folded), *(f":(exclude){m.path / b}" for b in BUILD_FILES),
+            *(f":(exclude){mn}" for mn in mains if any(f in mn.parents for f in m.folded)), *excluded]
 
 
 # ---------- declarations without bodies ----------
@@ -282,7 +457,10 @@ def declarations(m):
             continue
         if body.strip():
             parts.append(f"### {f.relative_to(m.path)}\n{body}")
-    other = sorted(str(f.relative_to(m.path)) for f in m.sources if f.suffix in (".kt", ".scala", ".groovy"))
+    if m.kind == "build":
+        other = sorted(str(f.relative_to(m.path)) for f in m.sources if f.suffix in (".kt", ".scala", ".groovy"))
+    else:
+        other = sorted(str(f.relative_to(m.path)) for f in m.sources if f.suffix not in DECLARED_EXT)
     if other:
         parts.append("### Sources this tool cannot read declarations from (names only)\n" + "\n".join(other))
     return "\n\n".join(parts)
@@ -310,7 +488,12 @@ def skill_description(text):
 
 def skill_mentions(m, all_skills, types):
     # A part's directory name is a package segment ("ir", "dm"), far too common a word to match on.
-    names = {m.id, f"{m.build.name}/{m.path.name}"} if m.parent else {m.id, m.path.name}
+    if m.kind == "dir":
+        names = {m.id} | ({str(m.path)} if m.path != Path(".") else set())
+    elif m.parent:
+        names = {m.id, f"{m.build.name}/{m.path.name}"}
+    else:
+        names = {m.id, m.path.name}
     terms = names | {t for t in types if len(t) >= 6}
     pattern = re.compile(r"\b(" + "|".join(re.escape(t) for t in sorted(terms, key=len, reverse=True)) + r")\b")
     hits = {}
@@ -322,7 +505,7 @@ def skill_mentions(m, all_skills, types):
 
 
 def module_header(m, mods):
-    artifacts = {o.artifact for o in mods.values()}
+    artifacts = {o.artifact for o in mods.values() if o.kind == "build"}
     internal = sorted(a for a, s in m.deps if a in artifacts and s != "test")
     external = sorted(a for a, s in m.deps if a not in artifacts and s != "test")
     split = []
@@ -338,6 +521,7 @@ def module_header(m, mods):
     return "\n".join([
         f"# Module {m.id}",
         f"path: {m.path}",
+        *([f"holds: the files directly in {m.path}" + "".join(f", and {f}/" for f in m.folded)] if m.residual else []),
         *split,
         f"depends on (project): {', '.join(internal) or '-'}",
         f"depends on (external): {', '.join(external) or '-'}",
@@ -376,7 +560,7 @@ def wired_from(m, mods, types):
     imports = importer(pkgs)
     hits = []
     for other in mods.values():
-        if other is m:
+        if other is m or other.kind != "build":
             continue
         for f in other.sources:
             if f.suffix != ".java":
@@ -399,8 +583,10 @@ def pack(m, mods, all_skills):
     if readme.exists():
         sections.append("## README\n" + readme.read_text(errors="replace"))
     sections.append("## Declarations (method bodies dropped)\n" + declarations(m))
-    for title, body in (("## Constructed in other modules (where it is plugged in)", wired_from(m, mods, types)),
-                        ("## Wiring", wiring(m))):
+    build = m.kind == "build"
+    for title, body in (("## Constructed in other modules (where it is plugged in)",
+                         wired_from(m, mods, types) if build else ""),
+                        ("## Wiring", wiring(m) if build else "")):
         if body:
             sections.append(f"{title}\n{body}")
     if all_skills:
@@ -517,14 +703,18 @@ def write_cards(ids, mods, model):
 
 
 def changed_modules(sha, mods):
+    """A build file counts against the build-file modules it builds; any other path against its owner."""
+    mains = build_mains(mods)
     changed = set()
-    for p in git("diff", "--name-only", sha, "HEAD").splitlines():
+    for p in git("diff", "--name-only", "-z", sha, "HEAD").split("\0"):
+        if not p:
+            continue
         p = Path(p)
         if p.name in BUILD_FILES:
-            changed |= {m.id for m in mods.values() if m.build == p.parent}
+            changed |= {m.id for m in mods.values() if m.kind == "build" and m.build == p.parent}
             continue
-        m = module_of(p, mods)
-        if m and m.main in p.parents:
+        m = owner(p, mods, mains)
+        if m:
             changed.add(m.id)
     return changed
 
@@ -533,7 +723,8 @@ def changed_modules(sha, mods):
 
 def cmd_modules(mods, _):
     for mid, m in sorted(mods.items(), key=lambda kv: str(kv[1].path)):
-        print(f"{mid:40} {str(m.path):60} {len(m.sources):>4} files")
+        size = sum(file_size(f) for f in m.sources)
+        print(f"{mid:40} {str(m.path):60} {len(m.sources):>4} files {size // 1000:>6}k")
     print(f"{len(mods)} modules")
 
 
@@ -597,6 +788,8 @@ def cmd_status(mods, a):
     cs = cards()
     all_types, type_files = set(), {}
     for m in mods.values():
+        if m.kind != "build":
+            continue
         for f in m.sources:
             if f.suffix in DECLARED_EXT:
                 for t in TYPE_DECL.findall(read(f)):
@@ -616,7 +809,7 @@ def cmd_status(mods, a):
         notes, changed = [], ""
         sha = meta.get("verified-at", "")
         try:
-            stat = git("diff", "--numstat", sha, "HEAD", "--", str(m.main), *(f":(exclude){d}" for d in m.excluded))
+            stat = git("diff", "--numstat", sha, "HEAD", "--", *pathspecs(m, mods))
             changed = str(sum(int(x) + int(y) for x, y, _ in (l.split("\t") for l in stat.splitlines()) if x != "-"))
         except subprocess.CalledProcessError:
             notes.append(f"unknown verified-at '{sha}'")
@@ -719,7 +912,8 @@ def main():
     set_root(a.root)
     mods = modules()
     if not mods and a.cmd not in ("usage",):
-        sys.exit("no modules found: kb.py reads Maven and Gradle projects with sources under <module>/src/main")
+        sys.exit("no source found: kb.py found no build-file module and no tracked source file; "
+                 "an include line in fondue/kb/parts.txt can name one (protocol/kb.md)")
     COMMANDS[a.cmd](mods, a)
 
 
