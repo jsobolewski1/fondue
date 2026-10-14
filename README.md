@@ -153,17 +153,21 @@ read before they design:
   thing, plus every project skill. Small enough to read whole, about 5k tokens for 30-40 modules.
 - `fondue/kb/cards/<module>.md`: what a module offers, **where a new thing plugs in** (down to the
   file that wires it), and what not to rebuild. What and where only. Why and how stay in your skills.
-  A module too broad for one card can get a card per package, listed in `fondue/kb/parts.txt`,
-  without changing your build.
+  A module too broad for one card can get a card per directory, listed in `fondue/kb/parts.txt`,
+  without changing your build. The same file can leave out what isn't source, or add a language
+  the tool doesn't list.
 
 `/fondue:kb-init` builds it. A script does all the crawling: declarations without method bodies,
-the places other modules construct a module's types, wiring files. The model then writes each card
-in **one call with no tools**, so no agent wanders the code with a growing context. On a 33-module
-Java project, every card together cost about **$1.7 on Sonnet**, and the skill shows you its
+the places other modules construct a module's types or mention its names, wiring and manifest files.
+The model then writes each card in **one call with no tools**, so no agent wanders the code with a
+growing context. On a 33-module Java project, every card together cost about **$1.7 on Sonnet**; 35
+cards over five projects in other languages cost $2.09, about $0.06 a card. The skill shows you its
 estimate before spending anything. After that, each spec's handover and each hunt's fix update the
 cards they touched. `kb.py status` checks every card against the code for free.
 
-It reads any project: Maven and Gradle modules as their build lays them out, and every other directory of source as a module of its own. Java and `.proto` have their own readers, and every other language goes through one that keeps declarations by indentation. The why behind it is in
+It reads any project: Maven and Gradle modules as their build lays them out, and every other
+directory of source as a module of its own. Java and `.proto` have their own readers, and every other
+language goes through one that keeps declarations by indentation. The why behind it is in
 [`skills/kb-init/design-notes.md`](skills/kb-init/design-notes.md).
 
 ## ⚖️ The rules every review follows
