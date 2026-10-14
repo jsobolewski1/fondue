@@ -554,7 +554,7 @@ def cmd_estimate(mods, a):
         print("0 cards to write")
         return
     print(f"{len(ids)} cards: about {total / 1000:.0f}k input and {out / 1000:.0f}k output tokens, "
-          f"in {len(ids)} calls with no tool loop. Measured on tachornis with sonnet: about $0.004 per 1k input-plus-output.")
+          f"in {len(ids)} calls with no tool loop. Measured on a 33-module Java project with sonnet: about $0.004 per 1k input-plus-output.")
     print(f"estimate: ~${(total + out) * 0.0045 / 1000:.2f} on sonnet")
 
 

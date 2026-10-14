@@ -6,9 +6,9 @@ For the User changing the knowledge base or its tooling. Roles do not read this 
 The failures it targets: an agent rebuilds something that exists under another name, and treats existing code as fixed and builds around it. A vector search over code chunks gives no sign of what it missed, which is exactly how the first failure happens. A small text index, read whole, cannot miss a module. Cards are text in git, so grep finds them, a diff reviews them, and `kb.py status` checks them against the code without spending tokens.
 
 ## Why the cost stays low
-A tool that lets an agent explore the code to describe it pays for its growing context on every call. An earlier tool spent two full sessions on a project a fifth of tachornis's size. Here a script does all the crawling (declarations without bodies, construction sites, wiring files, skill lines) and the model makes one tool-less call per card. The context never grows.
+A tool that lets an agent explore the code to describe it pays for its growing context on every call. An earlier tool spent two full sessions on a project a fifth the size of the one measured below. Here a script does all the crawling (declarations without bodies, construction sites, wiring files, skill lines) and the model makes one tool-less call per card. The context never grows.
 
-Measured on tachornis, 2026-10-06: 33 Maven modules, 373 main Java files, 1.6M chars. Sonnet, API-equivalent cost.
+Measured on a sample Java project, 2026-10-06: 33 Maven modules, 373 main Java files, 1.6M chars. Sonnet, API-equivalent cost.
 
 | What | Tokens | Cost |
 |---|---|---|
@@ -19,7 +19,7 @@ Measured on tachornis, 2026-10-06: 33 Maven modules, 373 main Java files, 1.6M c
 | One card | ~1.9k | |
 
 - **Chars per token.** Java skeletons tokenize at about 2.5 chars per token and card prose at 2.6-2.9. The common rule of 4 undercounts code by about 1.6×. `kb.py estimate` uses 2.5.
-- **Overhead.** A `claude -p` call run from a project loads that project's CLAUDE.md and the user's memory: 8.6k tokens a call on tachornis. `--setting-sources ""` cuts it to about 0.8k, and `kb.py` passes it.
+- **Overhead.** A `claude -p` call run from a project loads that project's CLAUDE.md and the user's memory: 8.6k tokens a call on that project. `--setting-sources ""` cuts it to about 0.8k, and `kb.py` passes it.
 
 ## What changed during the pilot, and why
 - **The index-writer call was dropped.** The first design wrote the index in one call over every module's slim declarations (~96k tokens, $0.46) so it could be built before any card. Once every card is written anyway, its frontmatter summary is the index entry, and a script concatenates them for free.
