@@ -33,3 +33,4 @@
 | 2026-10-15 | Coder | opus/high | implementation:03:Answer | next-round | 1 accepted, 0 challenged, 0 declined | out 92 · write 3.92k · read 2.21M · in 14 | 1m |
 | 2026-10-15 | KB writer | sonnet | implementation:03:Answer | cards written | - | out 321 · write 2.6k · read 0 · in 2 | - |
 | 2026-10-15 | Code Reviewer | opus/xhigh | implementation:03:Review | approved | 0 Blocker, 0 Nit | out 2.41k · write 8.12k · read 2.39M · in 14 | 1m |
+| 2026-10-15 | Arbiter | opus/high | handover | handover written | - | - | - |
