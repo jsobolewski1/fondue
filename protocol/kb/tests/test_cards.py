@@ -48,7 +48,7 @@ class Prompt(unittest.TestCase):
         mine = [l[len("[any code] "):] for l in text.splitlines() if l.startswith("[any code] ")]
         java = [l[len("[java] "):] for l in text.splitlines() if l.startswith("[java] ")]
         any_code = kb.prompt("any code").splitlines()
-        self.assertEqual(len(mine), 5)
+        self.assertEqual(len(mine), 6)
         for line in mine:
             self.assertIn(line, any_code)
         for line in java:
