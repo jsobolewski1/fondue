@@ -63,7 +63,7 @@ The spec starts as the engine's Starting a spec says, with first state `brief`. 
 * **after the roster, Sessions:** `fresh`, the default, or `continue` (see implementation and roster.md).
 
 ### brief
-User writes `pre-plan/00-brief.md`, the spec's starting document: alone, with the Arbiter in one of the ways the engine's Starting a spec offers, or with any other AI help they choose. The stage ends when the User tells the Arbiter the brief is signed off. The Arbiter commits and sets `pre-plan:Draft`.
+User writes `pre-plan/00-brief.md`, the spec's starting document: alone, with the Arbiter in one of the ways the engine's Starting a spec offers, or with any other AI help they choose. The stage ends when the User signs the brief off. Whenever the Arbiter shows the User a draft of the brief, it asks for the sign-off or the changes (engine: Asking the User). The Arbiter commits and sets `pre-plan:Draft`.
 
 At sign-off the Arbiter checks one thing: **a light brief has no open question** except ones marked `(technical)`. That is a mechanical check, not a judgement: the Arbiter tells the User when it fails, and the User changes the mode or the brief. Why: an open question that shapes the approach means the design is not settled, and light mode gives the approach and the tasks a single review, which would then be spent settling the design.
 
@@ -132,7 +132,7 @@ A new Architecture Reviewer reviews it against `plan.md` and the code. Why a rev
 * **when the User names the roster's Handover Writer,** it sends the request to the one that wrote the update, or spawns it from its `roster.md` row if the update did not run.
 * **when the User names another model and effort,** it spawns a Handover Writer with them (engine: Starting a role) for that request alone, and keeps its handle in its own context like an advisor's: the roster's Handle cell stays with the one that wrote the update.
 
-Whoever writes a document commits it on its own, never with a spec folder. When the Arbiter writes it there is no turn and no reply: it adds a `stats.md` row with the Role `Arbiter`, the Result `handover written`, and `-` for Counts, Tokens and Time, and the state stays `handover`. On entering `handover` the Arbiter sends no turn: it waits for the User's request. The stage closes when the User tells the Arbiter to close it. The Arbiter then takes the spec to the engine's `done`, and does any git work the User asks for, e.g. a merge or a push. It makes no remote write the User has not asked for.
+Whoever writes a document commits it on its own, never with a spec folder. When the Arbiter writes it there is no turn and no reply: it adds a `stats.md` row with the Role `Arbiter`, the Result `handover written`, and `-` for Counts, Tokens and Time, and the state stays `handover`. On entering `handover` the Arbiter sends no turn: it asks the User for a further document or the close of the stage (engine: Asking the User), and again after each document. The stage closes when the User tells the Arbiter to close it. The Arbiter then takes the spec to the engine's `done`, and does any git work the User asks for, e.g. a merge or a push. It makes no remote write the User has not asked for.
 
 ## State
 `current-state.txt` is `<stage>[:<NN>][:<Step>]`. `NN` appears in `implementation` only. `Step` appears in `pre-plan`, `plan` and `implementation`, and in `handover` while the update runs. Examples: `brief`, `pre-plan:Review`, `plan:Answer`, `implementation:03:Draft`, `handover:Review`, `handover`, `done`, `abandoned`.

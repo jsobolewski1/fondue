@@ -35,7 +35,7 @@ The Arbiter runs Start and Turn with the Bash tool and `run_in_background: true`
 At `start`, before the roster is fixed, the Arbiter checks for `~/.config/fondue/integrations/agents/`. If it is missing:
 
 1. **Detect.** Run the Detect section of every shipped adapter. Tell the User what was found: the agent, where it lives, its version, and whether it is signed in.
-2. **Choose.** Ask the User which of the found agents to register, and whether they use any other agent that has no shipped adapter.
+2. **Choose.** Ask the User which of the found agents to register, and whether they use any other agent that has no shipped adapter: one round of questions (engine: Asking the User).
 3. **Write.** For a shipped adapter: copy it, with the scripts it names, and re-run each RESULT the installed version may have changed. For any other agent: write the adapter with the User, section by section under the contract, with the shipped adapters as the model.
 4. **Verify.** Run each adapter's Verify, and tell the User beforehand that it spends a few tokens on the agent's account. An adapter that fails is not saved. The User hears what failed.
 5. **Create the folder**, empty if nothing was registered, so the next `start` does not ask again.

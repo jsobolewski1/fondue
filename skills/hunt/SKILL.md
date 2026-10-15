@@ -63,7 +63,8 @@ The spec starts as the engine's Starting a spec says, with first state `report`.
 ### report
 The User writes `report.md`, the bug's starting document: alone, with the Arbiter in one of the ways the
 engine's Starting a spec offers, or with any other AI help. The stage ends
-when the User signs it off. The Arbiter commits and sets `hunt:Draft`.
+when the User signs it off; the Arbiter asks for the sign-off whenever it shows a draft (engine:
+Asking the User). The Arbiter commits and sets `hunt:Draft`.
 
 ### hunt
 The Hunter reads the knowledge base (engine: Knowledge base) to find its way into the code, then

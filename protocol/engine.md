@@ -47,7 +47,9 @@ fondue/<kind>/
 `fondue/<kind>/archive/` is history, never current truth.
 
 ## Starting a spec
-The User opens a session and loads a process skill. That session is the Arbiter. It walks the User through the start, and asks only what the User has not already said: in the opening message, or in an earlier answer that settles a later question too, e.g. "opus at high for every role". It asks **one question at a time**, with the default as the first option. It uses the AskUserQuestion tool when the session has one; when the choices outnumber what the tool takes, it lists them in text and takes a free answer. An option is a whole answer, e.g. a complete roster row, so most questions take one pick. Why one at a time: a block of questions gets skimmed, and the roster is where a careless answer costs the most, on every turn of the spec.
+The User opens a session and loads a process skill. That session is the Arbiter. It walks the User through the start, asking in rounds (Asking the User), and asks only what the User has not already said: in the opening message, or in an earlier answer that settles a later question too, e.g. "opus at high for every role". Each question has the default as its first option. An option is a whole answer, e.g. a complete roster row, so most questions take one pick.
+
+The steps below run in rounds of up to four questions, in their order: e.g. the name, the process skill's questions before the roster and the first roster rows in one round, the rest of the roster in the next. A question whose options depend on an answer in the same round waits for the next one: an adapter's roster-time questions follow the round that put a role on it.
 
 **The most recent spec** of this kind is the one with the highest number when the folders are numbered, `archive/` included. Otherwise it is the one whose `roster.md` git last committed. A project with no spec of this kind has none, and every default that would come from it falls away.
 
@@ -86,6 +88,19 @@ In this order, it:
    In every way, the Arbiter's own words are limited to restating the source and recording what exists. The goal, the scope, any decision, any permission and anything marked for the process skill's checks are the User's words. It proposes no approach. What the source leaves open goes under the template's open section, unmarked, and the User adds any mark a process skill defines. Why: a starting document the Arbiter shaped would steer every role while carrying the User's signature. And the sign-off checks a process skill runs on it would test the Arbiter's own judgement.
 
 The User starts only the Arbiter. The Arbiter spawns every other role.
+
+## Asking the User
+Every decision the Arbiter needs from the User is asked as a question, through the AskUserQuestion tool when the session has one: the start, a sign-off, a ruling, a request at handover, the close of a stage. A decision the User states unasked needs no question.
+
+* **Rounds.** Questions that do not depend on each other go in one round: up to four questions, the most the tool takes, each with two to four options and the tool's free answer. More questions take more rounds. Why rounds: each question in a round is its own pick, so a round is read with the care of a single question, and the User answers several in one go.
+* **Too many options.** When the choices outnumber what the tool takes, e.g. a long list of skills, the Arbiter lists them in text and takes a free answer, in a round of its own.
+* **A ruling.** The Arbiter's message carries the CONFLICT or QUESTION text first, quoted as Escalation and User questions say. The round then holds one question per thread or question, in the order of the message. Each names its `<file>#<id>` in its text, and its header is short, e.g. `#6` or `Q1`, because the tool's header takes 12 characters:
+  - **a question:** its options are `Option 1` to `Option <n>`, in the role's order, each with that option's text verbatim as its description. The Arbiter marks none as recommended and reorders none: the recommendation, if any, is in the quoted text, and it is the role's.
+  - **a deadlock:** two options, `Reviewer's position` and `Author's position`, each with its side's text as quoted.
+  - **a BLOCKED:** the reply's sentence is the question, and the options are what the engine allows: `I'll fix it, then send the turn` and `Abandon the spec`. The free answer names someone else to fix it, or anything else.
+
+  A ruling of the User's own goes into the free answer. **Ruling:** in `99-user.md` records the answer as given: the option picked, or the User's own words, with any note the User added.
+* **No tool.** Without it, the Arbiter asks one question at a time, in text, with the options numbered. Why: a block of questions in text gets skimmed, and an answer to the wrong question is the costliest kind.
 
 ## State
 
@@ -289,7 +304,7 @@ Author, <file>#<id>:
 Files: <files from the reply>
 Your ruling?
 ```
-The Arbiter quotes each side verbatim and adds nothing of its own: no summary, no framing, no ruling. Why: a summary chooses what matters and how the choice is put, so the User would be ruling on the Arbiter's framing, not on the two positions. Each side states only its own position, never the other's. After the ruling, the author gets the next turn in the same Answer state and writes a new answer applying the ruling, with a normal verdict.
+It then asks for the ruling as Asking the User says. The Arbiter quotes each side verbatim and adds nothing of its own: no summary, no framing, no ruling. Why: a summary chooses what matters and how the choice is put, so the User would be ruling on the Arbiter's framing, not on the two positions. Each side states only its own position, never the other's. After the ruling, the author gets the next turn in the same Answer state and writes a new answer applying the ruling, with a normal verdict.
 
 A **new** finding on new evidence is never a deadlock, however late it arrives.
 
@@ -331,7 +346,7 @@ QUESTION in <state>
 Files: <evidence paths from the reply>
 Your ruling?
 ```
-The Arbiter quotes each question verbatim and adds nothing of its own, as at a CONFLICT. It records one ruling per question with `settles <file>#<id>`, or moves the text of `question.md` into the **Evidence:** of the first of its rulings and deletes the file. Once every question has a ruling, the same role gets the next turn in the same state. An author writes a new answer that applies the rulings, as after a CONFLICT, with a normal verdict. A Draft turn resumes its work.
+It then asks for the rulings as Asking the User says. The Arbiter quotes each question verbatim and adds nothing of its own, as at a CONFLICT. It records one ruling per question with `settles <file>#<id>`, or moves the text of `question.md` into the **Evidence:** of the first of its rulings and deletes the file. Once every question has a ruling, the same role gets the next turn in the same state. An author writes a new answer that applies the rulings, as after a CONFLICT, with a normal verdict. A Draft turn resumes its work.
 
 When one answer holds both a deadlock and a question, the author replies CONFLICT and appends `| question <refs>` to the line. The Arbiter puts both to the User in one message: the CONFLICT, then each question block.
 
@@ -426,7 +441,7 @@ The Arbiter does these in order, every time, and nothing else:
 
 A reply whose `<state>` is not the state the Arbiter wrote is not a reply to this turn: the Arbiter skips steps 1-3 and sends `Your turn.` once more. If the next reply is stale too, it spawns a new session for the role, records the new handle, and sends the turn there.
 
-After a CONFLICT, a QUESTION or a BLOCKED, the Arbiter does step 1, then puts the question to the User and records the ruling in `99-user.md`. It leaves the state unchanged and sends `Your turn.` to the same role. If the fix is outside that role's reach, the User makes it, or names who does, before the turn is sent. A ruling that abandons the spec, or one the process skill gives its own handling, is carried out as its section says.
+After a CONFLICT, a QUESTION or a BLOCKED, the Arbiter does step 1, then puts the question to the User (Asking the User) and records the ruling in `99-user.md`. It leaves the state unchanged and sends `Your turn.` to the same role. If the fix is outside that role's reach, the User makes it, or names who does, before the turn is sent. A ruling that abandons the spec, or one the process skill gives its own handling, is carried out as its section says.
 
 ## Closing a spec
 
