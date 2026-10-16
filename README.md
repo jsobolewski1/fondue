@@ -23,7 +23,7 @@ every role dips in with a session of its own, on whichever agent you seat. And o
 **no double-dipping.** Nobody reviews their own work.
 
 <p align="center">
-  <img src="assets/fondue-workflow.png" alt="You and the Arbiter exchange the brief and rulings. The Arbiter sends each role only &quot;your turn&quot;. Architect, Architecture Reviewer, Coder, Code Reviewer and Handover Writer each dip their own fork into one shared pot, the spec folder. The Arbiter never touches the pot while the team cooks." width="820">
+  <img src="assets/fondue-workflow.png" alt="You and the Arbiter exchange the brief, questions and rulings. The Arbiter sends each role only &quot;your turn&quot;. Architect, Architecture Reviewer, Coder, Code Reviewer, Tests Auditor, Conventions Auditor and Handover Writer each dip their own fork into one shared pot, the spec folder. The Arbiter reads the pot only to research for you when you ask." width="820">
 </p>
 
 > ⭐ Hey! This fondue is free, and so is a GitHub star ;) You're one click away from making my day!
@@ -112,7 +112,7 @@ Earlier specs ran on earlier versions of the protocol. **Issues and war stories 
 ## 🏗️ How spec works
 
 <p align="center">
-  <img src="assets/spec-workflow.png" alt="brief (you), then pre-plan (approach, reviewed), plan (technical design, reviewed), implementation (each phase reviewed), audit (tests, then conventions, each reviewed), handover, done. If the approach fails in plan, implementation or the audit, a new attempt starts from a new brief." width="820">
+  <img src="assets/spec-workflow.png" alt="brief (you), then pre-plan (approach and invariants, reviewed), plan (technical design, reviewed), implementation (each phase reviewed), audit (tests, conventions and any fixes, each reviewed), handover (knowledge base and skills reviewed, then any further documents), done. If the approach fails in plan, implementation or the audit, a new attempt starts from a new brief." width="820">
 </p>
 
 | Role | What they do | Lives for |
@@ -159,7 +159,7 @@ Use it for a bug whose cause is **unknown and takes experiments to find**: inter
 distributed, load-dependent. A bug with a stack trace and an obvious fix doesn't need it.
 
 <p align="center">
-  <img src="assets/hunt-workflow.png" alt="report (you), then hunt (diagnosis, reviewed), fix (red commit, then the fix, reviewed), done." width="820">
+  <img src="assets/hunt-workflow.png" alt="report (you), then hunt (diagnosis, reviewed), fix (red commit, the fix, documentation and knowledge base update, reviewed), done." width="820">
 </p>
 
 - 🕵️ **Hunter:** reproduces, localizes and root-causes the bug. Every step of the chain stands on
@@ -176,6 +176,10 @@ distributed, load-dependent. A bug with a stack trace and an obvious fix doesn't
 AI sessions on a big codebase fail in familiar ways: they rebuild what exists under another name,
 and treat existing code as untouchable and build around it. The knowledge base is a map that roles
 read before they design:
+
+<p align="center">
+  <img src="assets/knowledge-base.png" alt="kb.py mechanically packs each codebase module's declarations, wiring and uses. One tool-less model call writes each module card, and the cards generate an index that roles read whole before opening relevant cards. Spec handover and hunt fix refresh changed cards and check them until status is clean. The cards point back to code; they are never evidence themselves." width="820">
+</p>
 
 - `fondue/kb/index.md`: one entry per module, saying what it offers, with other names for the same
   thing, plus every project skill. Small enough to read whole, about 5k tokens for 30-40 modules.
