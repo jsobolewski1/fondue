@@ -1,6 +1,6 @@
 ---
 name: role-max
-description: A fondue role (Architect, Architecture Reviewer, Coder, Code Reviewer, Handover Writer in a spec; Hunter, Reviewer in a hunt) or an Advisor, at max effort. Spawned only by a fondue Arbiter; never delegate other work to it.
+description: A fondue role (Architect, Architecture Reviewer, Coder, Code Reviewer, Tests Auditor, Conventions Auditor, Handover Writer in a spec; Hunter, Reviewer in a hunt) or an Advisor, at max effort. Spawned only by a fondue Arbiter; never delegate other work to it.
 effort: max
 experimental:
   cacheTtl: 1h

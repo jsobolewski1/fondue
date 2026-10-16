@@ -36,8 +36,9 @@ every role dips in with a session of its own, on whichever agent you seat. And o
 ```
 
 1. **Restart Claude Code.** Agent types load at session start.
-2. **Open your project** and run `/fondue:spec`. The Arbiter walks you through the start, one
-   question at a time: the title, the mode, the team role by role, and the skills each role loads.
+2. **Open your project** and run `/fondue:spec`. The Arbiter walks you through the start, a few
+   questions at a time: the title, the team role by role, the skills each role loads, and
+   `Sessions: fresh` or `continue`.
    Anything your command already says, it doesn't ask.
 3. **Draft the brief** your way: write it yourself, let the Arbiter interview you, draft it from your
    notes, or have it research the code first. Sign it off, and lead the team from there.
@@ -105,23 +106,32 @@ Earlier specs ran on earlier versions of the protocol. **Issues and war stories 
 | **Arbiter** | Spawns roles, sends turns, keeps state, researches for you on request, writes any further handover document. Never rules on the work | the whole spec |
 | **Architect** | Researches, drafts the approach, then the technical plan | one attempt |
 | **Architecture Reviewer** | Reviews both, after designing their own approach first. A new one reviews the handover update | one attempt |
-| **Coder** | Implements one phase, leaving the build green on every turn | one phase, or all of them with `Sessions: continue` |
-| **Code Reviewer** | Checks the change against the plan and your project's rules | as long as the Coder |
+| **Coder** | Implements one phase, leaving the build green on every turn. In the audit, reviews the auditors' changes and fixes what they may not change | one phase, or all of them with `Sessions: continue`; one audit topic |
+| **Code Reviewer** | Checks the change against the plan and your project's rules on structure | as long as the Coder |
+| **Tests Auditor** | After the last phase, mutates the spec's code and adds a test for each mutant no test caught. Changes tests only; a new Coder reviews | its audit topic |
+| **Conventions Auditor** | Then brings the spec's code in line with your project's rules, without changing behaviour; a new Coder reviews | its audit topic |
 | **Handover Writer** | Brings the knowledge base and your project skills up to date with what the spec changed | handover |
 
 - **Two planning stages.** *Pre-plan* settles the **approach**: the decisions that shape it, the
-  alternatives rejected, and the phases with their gates. *Plan* settles the **technical
+  alternatives rejected, the **invariants** it guarantees, and the phases with their gates. The
+  reviewer writes their own invariants before reading the draft, then tries to break the draft's
+  with concrete scenarios; an invariant a scenario breaks blocks the draft. *Plan* settles the **technical
   decisions** and tasks, each with how it is tested. If the approach is rejected, only a short draft
   is thrown away, never a set of detailed phase files.
 - **Fresh sessions per phase.** Each phase gets a new Coder and a new Code Reviewer, so no session
   drags a long history along. For a spec with small phases, `Sessions: continue` in the roster keeps
   the pair through every phase instead. It's an experiment, and `protocol/stats-total.py` gives each
   spec one figure to compare.
-- **Reopening.** If the approach breaks in plan or halfway through implementation, the failed attempt
+- **Reopening.** If the approach breaks in plan, halfway through implementation or in the audit, the failed attempt
   is set aside, and you sign a new brief. A fresh Architect and Reviewer then read **what the old
   plan was and what broke it**. Work already committed is kept, amended or reverted, phase by phase.
 - **Abandoning.** A spec that won't deliver can be stopped, and its archive says so.
-- **Handover updates the docs.** After the last phase, the Handover Writer rewrites the knowledge
+- **The audit checks the whole range.** After the last phase, two auditors read everything the spec
+  changed. The Tests Auditor mutates it and adds a test for each mutant no test caught; the
+  Conventions Auditor fixes what breaks your project's rules. Each makes its own changes, and a new
+  Coder reviews them. What an auditor may not change, such as a bug in production code, goes to a
+  Coder and a Code Reviewer, as a phase does.
+- **Handover updates the docs.** After the audit, the Handover Writer rewrites the knowledge
   base cards and the project skills that the spec made wrong, and a reviewer checks them against the
   code. Docs that steer every later spec don't get to drift.
 

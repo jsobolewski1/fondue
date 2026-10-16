@@ -49,7 +49,7 @@ fondue/<kind>/
 ## Starting a spec
 The User opens a session and loads a process skill. That session is the Arbiter. It walks the User through the start, asking in rounds (Asking the User), and asks only what the User has not already said: in the opening message, or in an earlier answer that settles a later question too, e.g. "opus at high for every role". Each question has the default as its first option. An option is a whole answer, e.g. a complete roster row, so most questions take one pick.
 
-The steps below run in rounds of up to four questions, in their order: e.g. the name, the process skill's questions before the roster and the first roster rows in one round, the rest of the roster in the next. A question whose options depend on an answer in the same round waits for the next one: an adapter's roster-time questions follow the round that put a role on it.
+The steps below run in rounds of up to four questions, in their order: e.g. the name, any questions the process skill asks before the roster, and the first roster rows in one round, the rest of the roster in the next. A question whose options depend on an answer in the same round waits for the next one: an adapter's roster-time questions follow the round that put a role on it.
 
 **The most recent spec** of this kind is the one with the highest number when the folders are numbered, `archive/` included. Otherwise it is the one whose `roster.md` git last committed. A project with no spec of this kind has none, and every default that would come from it falls away.
 
@@ -85,7 +85,7 @@ In this order, it:
    - **From a source.** The User points to notes, an issue, a document or this conversation. It drafts from that source and the answers already given, nothing else.
    - **With research.** It reads the code, the knowledge base and the sources the User names. It writes only FACTs about what exists, with their anchors, under the template's context or evidence. This is its research for the User (Roles every process has): what it finds reaches the roles only through the document the User signs.
 
-   In every way, the Arbiter's own words are limited to restating the source and recording what exists. The goal, the scope, any decision, any permission and anything marked for the process skill's checks are the User's words. It proposes no approach. What the source leaves open goes under the template's open section, unmarked, and the User adds any mark a process skill defines. Why: a starting document the Arbiter shaped would steer every role while carrying the User's signature. And the sign-off checks a process skill runs on it would test the Arbiter's own judgement.
+   In every way, the Arbiter's own words are limited to restating the source and recording what exists. The goal, the scope, any decision and any permission are the User's words. It proposes no approach. What the source leaves open goes under the template's open section, unmarked, and the User adds any mark a process skill defines. Why: a starting document the Arbiter shaped would steer every role while carrying the User's signature, and a mark the Arbiter set would pass for the User's.
 
 The User starts only the Arbiter. The Arbiter spawns every other role.
 

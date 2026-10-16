@@ -4,7 +4,7 @@ description: "Specification-driven multi-model software development protocol. Us
 license: MIT
 metadata:
   owner: "Jakub Sobolewski"
-  version: 8
+  version: 9
   status: "living doc — update in place when the workflow changes"
 ---
 
@@ -18,12 +18,16 @@ A spec goes from the User's brief to merged code through fixed stages. Each AI s
 The engine's glossary holds, with these additions:
 
 * **Kind** - `specs`: a spec's folder is `fondue/specs/<spec>/`.
-* **Stage** - one of `brief`, `pre-plan`, `plan`, `implementation`, `handover`, then the engine's `done` or `abandoned`.
+* **Stage** - one of `brief`, `pre-plan`, `plan`, `implementation`, `audit`, `handover`, then the engine's `done` or `abandoned`.
 * **Phase** - one numbered part of the implementation. `NN` is always two digits, from `01`.
-* **Role** - the engine's User and Arbiter, and Architect, Architecture Reviewer, Coder, Code Reviewer, Handover Writer.
-* **Topic** - `pre-plan` and `plan`, whose author is the Architect and whose reviewer is the Architecture Reviewer; `phase-NN`, whose author is the Coder and whose reviewer is the Code Reviewer; and `handover`, whose author is the Handover Writer and whose reviewer is the Architecture Reviewer.
-* **Attempt** - one approach to the spec's goal, from brief to its end: `pre-plan/`, `plan/` and `review/`. The live attempt sits at the spec root. A failed one is moved to `attempts/NN/` (see Reopening).
+* **Role** - the engine's User and Arbiter, and Architect, Architecture Reviewer, Coder, Code Reviewer, Tests Auditor, Conventions Auditor, Handover Writer.
+* **Topic** - `pre-plan` and `plan`, whose author is the Architect and whose reviewer is the Architecture Reviewer; `phase-NN` and `audit-fixes`, whose author is the Coder and whose reviewer is the Code Reviewer; `audit-tests` and `audit-conventions`, whose authors are the Tests Auditor and the Conventions Auditor respectively and whose reviewer is the Coder; and `handover`, whose author is the Handover Writer and whose reviewer is the Architecture Reviewer.
+* **Attempt** - one approach to the spec's goal, from brief to its end: `pre-plan/`, `plan/`, `audit/` and `review/`. The live attempt sits at the spec root. A failed one is moved to `attempts/NN/` (see Reopening).
 * **Approved artifact** - the signed brief, `plan/plan.md`, and each `plan/phase-NN.md` once plan has closed. Changing one is a User question (engine: User questions).
+* **Invariant** - a property the approach guarantees once the spec is done, under the conditions it states: the inputs, callers, loads and timings it holds under, and the failures of the components it depends on. The draft states them (see `pre-plan/NN-draft.md`), and the Architecture Reviewer attacks them.
+* **Lens** - one of the audit's two checks, `tests` or `conventions`. Each runs as its own topic, `audit-tests` or `audit-conventions`: a lens topic (see audit).
+* **Audit topic** - `audit-tests`, `audit-conventions` or `audit-fixes`. In a state, `part` is the word after `audit-`.
+* **Audit finding** - an entry of `audit/findings.md`: shaped like an engine finding, with an id, a title, a severity, a description with its anchor, and a proposed solution, but written outside any review and cited as `audit/findings.md#<id>`. Its severity follows the Blocker rules of `audit-fixes`, and the Code Reviewer judges it by them, whatever the entry records.
 
 ## Folder layout
 ```
@@ -40,10 +44,13 @@ fondue/specs/
       plan.md
       research.md
       phase-01.md, phase-02.md, ...
+    audit/
+      findings.md              (only when an auditor found what it may not change)
     review/
       pre-plan/   00-request.md, 01-review.md, 02-answer.md, ...
       plan/       ...
       phase-01/   ...
+      audit-tests/  audit-conventions/  audit-fixes/
       handover/   ...
     handover/
       00-request.md, 01-request.md, ...
@@ -52,25 +59,23 @@ fondue/specs/
     advice/                    (engine: Advisors)
     attempts/                  (only after a reopen)
       01/
-        pre-plan/  plan/  review/  reopen.md
+        pre-plan/  plan/  audit/  review/  reopen.md
   archive/
     <spec>/
 ```
 
 ## Stages
-The spec starts as the engine's Starting a spec says, with first state `brief`. Its start questions:
-* **before the roster, Mode:** `full`, the default, or `light`, for a spec whose design is settled and whose work is mechanical (see Light mode). It goes into the brief's `Mode:` line, and the User may change it until sign-off.
-* **after the roster, Sessions:** `fresh`, the default, or `continue` (see implementation and roster.md).
+The spec starts as the engine's Starting a spec says, with first state `brief`. Its start question, after the roster, is **Sessions:** `fresh`, the default, or `continue` (see implementation and roster.md).
 
 ### brief
 User writes `pre-plan/00-brief.md`, the spec's starting document: alone, with the Arbiter in one of the ways the engine's Starting a spec offers, or with any other AI help they choose. The stage ends when the User signs the brief off. Whenever the Arbiter shows the User a draft of the brief, it asks for the sign-off or the changes (engine: Asking the User). The Arbiter commits and sets `pre-plan:Draft`.
 
-At sign-off the Arbiter checks one thing: **a light brief has no open question** except ones marked `(technical)`. That is a mechanical check, not a judgement: the Arbiter tells the User when it fails, and the User changes the mode or the brief. Why: an open question that shapes the approach means the design is not settled, and light mode gives the approach and the tasks a single review, which would then be spent settling the design.
+**Amending the brief.** A ruling may change a signed brief later: its goal or its scope. Unlike the engine's amendment of an approved artifact, the brief is edited, because it is the User's own document. The User edits it, or the Arbiter does in the User's words, and a line under the title says `Amended <date>: <what changed>; ruling in 99-user.md`. The User signs off the change. The Arbiter commits the amendment, and the role whose turn is next applies the amended brief. When the change takes the frame away from the drafts written so far, the User may restart the attempt.
 
-**Amending the brief.** A ruling may change a signed brief later: its goal, its scope or its mode. Unlike the engine's amendment of an approved artifact, the brief is edited, because it is the User's own document. The User edits it, or the Arbiter does in the User's words, and a line under the title says `Amended <date>: <what changed>; ruling in 99-user.md`. The User signs off the change. Until plan has closed, the Arbiter runs the light check again. It commits the amendment, and the role whose turn is next applies the amended brief. A change of mode after pre-plan has closed and before plan has closed restarts the attempt (see Reopening): the approved draft was written for the other mode. After plan has closed, the mode no longer applies, and the amendment is only recorded. When the change takes the frame away from the drafts written so far, the User may restart the attempt.
+**A `Mode:` line in a brief** is ignored: every spec runs every stage. On continuing a spec whose brief has one, the Arbiter tells the User, who lets it run on or, until plan has closed, restarts the attempt (see Reopening).
 
 ### pre-plan
-Pre-plan settles **how the goal is reached**: the approach, the decisions that shape it, and the phases with the gate each must pass. The technical decisions inside each phase belong to plan.
+Pre-plan settles **how the goal is reached**: the approach, the decisions that shape it, the invariants it guarantees, and the phases with the gate each must pass. The technical decisions inside each phase belong to plan.
 
 Architect reads the knowledge base (engine: Knowledge base), researches what the approach rests on and what the code already has, records both in `01-research.md`, writes the first draft `03-draft.md` and opens `review/pre-plan/` with `00-request.md`.
 
@@ -81,10 +86,12 @@ Why two planning stages: a frame the reviewer rejects throws away everything bui
 Architecture Reviewer's first turn runs in this order, and the order is the rule:
 1. read `00-brief.md`, the knowledge base (engine: Knowledge base), and every earlier attempt's `plan.md` and `reopen.md` if the spec was reopened, and decide how they would implement it
 2. read `01-research.md` if it exists, and do their own research if needed
-3. write the research results and their own intended approach into `02-reviewer-research.md`
+3. write the research results and their own intended approach, with the invariants they would state, into `02-reviewer-research.md`
 4. only then open the draft, and write the review
 
 Why: a reviewer who reads the draft first finds problems inside its frame and never questions the frame.
+
+**Every pre-plan review attacks the invariants.** For each invariant the draft states, the reviewer looks for a concrete scenario under which the approach, or any decision the draft carries, technical ones included, breaks it: an input or a caller that is hostile or merely unusual, a load, a timing, a component that is slow or fails. Then they compare the draft's invariants with their own from `02-reviewer-research.md` and with the brief. A scenario is written as its steps and what it ends in, and its claims about a mechanism follow the engine's Research rule. A scenario outside the conditions an invariant states does not break it. An invariant the draft leaves out is a finding when the brief names it, when the goal cannot be met without it, or when it keeps existing behaviour the change must not break; so is an invariant whose conditions leave out a case the brief or the goal needs. Any other guarantee the reviewer wants is a question for the User inside the finding (engine: User questions), because what the spec guarantees is part of what it delivers. Why: a review asked whether a design is right finds problems inside the design's own argument; a review asked to break a stated property looks where the argument is silent.
 
 Rounds follow Review. Every accepted fix goes into a new draft file with the next free number. Draft files are never edited. The stage closes on verdict `approved` or `closed`, and the final draft is the subject that verdict names.
 
@@ -93,24 +100,39 @@ Plan turns each phase of the approved approach into technical decisions and task
 
 Plan may not change the approach. A plan-stage RESULT that shows the approach cannot work leads to Reopening.
 
-**Light mode.** Light mode is for a spec whose design is settled and whose work is mechanical (a refactor, a move, a rename). The brief opts in with `Mode: light`, and has no open question that shapes the approach (see brief). The final draft already carries each phase's tasks and gate: in mechanical work the tasks are the approach, and it is the one case where a draft carries them. Architect copies it to `plan.md`, splits its phases verbatim into `phase-NN.md` files, writes no `research.md` and opens no review. Nothing new was written, so there is nothing to review and the stage closes on that turn. Without the line, the spec runs in full mode.
-
 ### implementation
 How long a Coder and a Code Reviewer live is the roster's **Sessions:**. With `fresh`, the default, every phase gets a new Coder and a new Code Reviewer: the Arbiter spawns each of them before its first turn and sends it no more turns once the phase closes. With `continue`, the pair spawned for the attempt's first phase takes every later phase too, and the Arbiter sends it each phase's turns by its handles. Why `fresh` is the default: a session kept into the next phase re-reads the context it carries on every call of that phase, and in the measured runs that cost more than a new session reading the plan and one phase file. `continue` is an experiment for specs with small phases, where it may cost less. `design-notes.md` has the arithmetic and the results so far.
 
-Coder implements the phase under the engine's Code turns: commit, build green, every gate the phase file names reported. Before writing code, it reads the knowledge base (engine: Knowledge base) for what is already there. Code Reviewer checks that the change is correct, introduces no problems and follows the project's guidelines, under the same section's limits. It reads the knowledge base too, for code the change rebuilds. Anything missing, such as a test or a case, is a finding.
+Coder implements the phase under the engine's Code turns: commit, build green, every gate the phase file names reported. Before writing code, it reads the knowledge base (engine: Knowledge base) for what is already there. Code Reviewer checks that the change is correct, introduces no problems and keeps the project's rules on structure, such as layering, boundaries or dependencies, under the same section's limits. The rest of the project's rules, style included, are the audit's (see audit). The Code Reviewer reads the knowledge base too, for code the change rebuilds. Anything missing, such as a test or a case, is a finding.
 
 The stage closes when the last phase closes.
 
+### audit
+The audit reviews the spec's whole code, `git diff <sha>..HEAD` with `<sha>` the commit on the first line of `landed.md`, through two lenses, each its own topic, in this order: `audit-tests`, then `audit-conventions`. In both, **the auditor is the author**: it makes the changes itself, under the engine's Code turns (commit, build green), and a new Coder reviews them. Why the auditor writes the change: a finding of this kind comes with its fix already worked out (the mutant and the test that kills it, or the rule and the edit that meets it), and handing it on costs a Coder a turn to type it again. Why a Coder reviews: checking these changes takes running them. **This skill overrides the engine's Code turns for the reviewer of a lens topic**: it may run the build and the commands its turn names (see Turns), and before it replies it leaves the branch checked out at the commit it found, with a clean tree. Why after the last phase: a test written in one phase can be made vacuous by a defence a later phase adds, and only a review of the whole range sees both.
+
+**The Tests Auditor** asks of every behaviour the spec's code adds or changes whether some test fails when it breaks. It mutates that code, with the project's mutation tool where it has one and otherwise by hand (a condition negated, a boundary moved, a call or a `finally` removed, a constant changed), runs the tests that cover it, and reverts. For each mutant that survives, it adds the test that kills it, or changes the test that should have. **It changes test code only**, and never a test a phase file fixes, such as an invariant's gate, because changing it departs from an approved artifact. It lists in its request each surviving mutant it judges equivalent, one that no test can tell apart from the code, with the reason. Every mutant that led to a change is in the request as a RESULT: the mutation, the command, survived before the change, killed after. Its tree holds no mutation when it commits.
+
+**The Conventions Auditor** checks the spec's code, the Tests Auditor's tests included, against the project's rules: its written ones (agent instructions, coding standards, contributing guide) and the conventions the code around it follows. Each change cites its rule or the code it follows. **Every change it makes keeps behaviour**: the build stays green and no test changes what it expects. A name, a key or any other decision a phase file fixes is outside its scope, because changing it departs from an approved artifact. It never rewrites history: a breach in the commits themselves, such as a refactoring inside a behaviour commit or a commit subject line over the project's length limit, is named in its request and left as it is. Why: a rewrite changes the shas that `landed.md` and every review name.
+
+**Outside an auditor's scope.** What an auditor finds and may not change, such as a bug in production code, a test expectation that a rule would change, or a decision a phase file fixes, it appends to `audit/findings.md` as an audit finding, changing nothing for it. Ids continue from the highest one in the file. An audit finding against a decision a phase file fixes is a User question, written in the engine's question shape (engine: User questions). A finding of its reviewer that it accepts and may not fix within its scope goes there too: its answer says `#<id> accepted, moved to audit/findings.md#<new id>`, and it reverts any change of its own the finding shows wrong.
+
+**`audit-fixes`.** When `audit/findings.md` exists after both lens topics have ended, the topic `audit-fixes` runs like a phase, with the findings file in place of a phase file. A new Coder fixes each audit finding, challenges one it holds wrong, or declines a Nit, and its request lists every id as `#<id> fixed in <commit>`, `#<id> challenged: <position>` or `#<id> declined (Nit)`. An audit finding that is a User question it asks with a QUESTION reply before it touches that decision. A new Code Reviewer reviews the fixes, the challenges and the declines against all of the project's rules, not only those on structure, because no lens runs after it. No mutation run checks the fixes; as on any phase, the Code Reviewer asks for the test each fix needs. Why the auditor may not fix these itself: a Tests Auditor that may change production code can change it to fit its test, and a Conventions Auditor that may change behaviour can change it without anyone asking for it.
+
+**Nothing to change.** An auditor replies `nothing to change` when it committed nothing and has nothing to list in a request: no equivalent mutant, no commit breach. It then opens no review; whatever it appended to `audit/findings.md` is judged in `audit-fixes`. Otherwise it opens a review. Why: an equivalent mutant or a commit breach that nobody reviews is a claim nobody checks. A lens auditor or an `audit-fixes` Coder that opens a review without having committed names its request file as the subject, and its `Build:` reports a build at HEAD run on that turn.
+
+Every audit topic gets new sessions for each of its roles, whatever **Sessions:** says: its author on Draft, its reviewer on the first Review. Why: under `continue`, the Coder and Code Reviewer at hand wrote and approved the range under review.
+
+The stage closes when its last topic ends.
+
 ### Reopening
-Not a stage: the way out of `plan` or `implementation` when the approved approach turns out not to work, and out of `pre-plan`, `plan` or `implementation` when the User restarts the attempt. What the new attempt needs most is the previous plan and why it failed, so both are carried forward on disk, never through a message.
+Not a stage: the way out of `plan`, `implementation` or `audit` when the approved approach turns out not to work, and out of `pre-plan`, `plan`, `implementation` or `audit` when the User restarts the attempt. What the new attempt needs most is the previous plan and why it failed, so both are carried forward on disk, never through a message.
 
 **Not every broken decision needs a reopen.** When the author and the reviewer agree that `plan.md` or a phase file must change and the change keeps the approach, it is an amendment: the author asks the User (engine: User questions), and the approved file stays as it is. A reopen starts a new attempt when the approach cannot work, or when the User rules a restart.
 
-1. **Evidence.** The role that hits it, whichever it is, writes `reopen.md` at the spec root and replies BLOCKED, naming it in the reply's sentence. The file holds the RESULT, the `plan.md` lines of every decision the RESULT breaks, and the state it was found in. A Coder leaves the tree at its last green commit. A BLOCKED with no `reopen.md` is an ordinary BLOCKED.
-   - **On the User's own ruling**, with no RESULT, the User may restart the attempt in any state of pre-plan, plan or implementation, e.g. when a ruling changes the brief under the drafts, when the mode changes between the end of pre-plan and the end of plan, or when the pair is anchored on a frame the User has given up. The Arbiter first waits for the reply of any turn in flight, appends its `stats.md` row (engine: On every reply, step 1), and neither advances the state nor sends a turn. It then writes `reopen.md` itself, in the User's words only: the ruling, the state, and the assumptions the User says the ruling removes.
+1. **Evidence.** The role that hits it, whichever it is, writes `reopen.md` at the spec root and replies BLOCKED, naming it in the reply's sentence. The file holds the RESULT, the `plan.md` lines of every decision the RESULT breaks, and the state it was found in. A role that writes code leaves the tree at its last green commit. A BLOCKED with no `reopen.md` is an ordinary BLOCKED.
+   - **On the User's own ruling**, with no RESULT, the User may restart the attempt in any state of pre-plan, plan, implementation or audit, e.g. when a ruling changes the brief under the drafts, or when the pair is anchored on a frame the User has given up. The Arbiter first waits for the reply of any turn in flight, appends its `stats.md` row (engine: On every reply, step 1), and neither advances the state nor sends a turn. It then writes `reopen.md` itself, in the User's words only: the ruling, the state, and the assumptions the User says the ruling removes.
 2. **Ruling.** The User reopens, abandons the spec (engine: abandoned), or rules the problem local and names who fixes it. Not every broken task breaks the approach. On a local ruling, the Arbiter moves the text of `reopen.md` into the ruling's **Evidence:** in `99-user.md` and deletes the file. Why: a `reopen.md` at the root says a reopen is pending.
-3. **The move.** On a reopen, the Arbiter moves `pre-plan/`, `plan/`, `review/` and `reopen.md` into the next `attempts/NN/`, sets the Handle cells of the Architect, the Architecture Reviewer, the Coder and the Code Reviewer in `roster.md` back to `-`, commits `fondue/specs/<spec>/` and sets `brief`. `roster.md`, `99-user.md`, `stats.md` and `landed.md` stay at the root: they span attempts.
+3. **The move.** On a reopen, the Arbiter moves `pre-plan/`, `plan/`, `audit/`, `review/` and `reopen.md` into the next `attempts/NN/`, sets the Handle cells of the Architect, the Architecture Reviewer, the Coder, the Code Reviewer and both auditors in `roster.md` back to `-`, commits `fondue/specs/<spec>/` and sets `brief`. `roster.md`, `99-user.md`, `stats.md` and `landed.md` stay at the root: they span attempts.
 4. **The brief.** The User writes a new `pre-plan/00-brief.md`. It may start from the previous one, and it says whether the goal has changed.
 5. **The new pair.** A fresh Architect and a fresh Architecture Reviewer, and later a fresh Coder and Code Reviewer for the new attempt's first phase, whatever **Sessions:** says. Why: the pair that designed and approved the failed frame is the pair most anchored to it, and a Coder or Code Reviewer kept from the failed attempt carries that frame in its context.
 6. **What they read.** Every attempt's `plan/plan.md`, if it has one, and its `reopen.md`: what was planned, and why it failed. The Architect also reads `landed.md`, for the Landed work section. The research files of earlier attempts are a source: a FACT carried forward is restated in the new research with its origin, and a RESULT about the mechanism that failed is re-run. Drafts, reviews and phase files of earlier attempts are never read. Why: they argue for the frame that failed, while `plan.md` states it and `reopen.md` states what broke it.
@@ -135,7 +157,7 @@ A new Architecture Reviewer reviews it against `plan.md` and the code. Why a rev
 Whoever writes a document commits it on its own, never with a spec folder. When the Arbiter writes it there is no turn and no reply: it adds a `stats.md` row with the Role `Arbiter`, the Result `handover written`, and `-` for Counts, Tokens and Time, and the state stays `handover`. On entering `handover` the Arbiter sends no turn: it asks the User for a further document or the close of the stage (engine: Asking the User), and again after each document. The stage closes when the User tells the Arbiter to close it. The Arbiter then takes the spec to the engine's `done`, and does any git work the User asks for, e.g. a merge or a push. It makes no remote write the User has not asked for.
 
 ## State
-`current-state.txt` is `<stage>[:<NN>][:<Step>]`. `NN` appears in `implementation` only. `Step` appears in `pre-plan`, `plan` and `implementation`, and in `handover` while the update runs. Examples: `brief`, `pre-plan:Review`, `plan:Answer`, `implementation:03:Draft`, `handover:Review`, `handover`, `done`, `abandoned`.
+`current-state.txt` is `<stage>[:<NN>|:<part>][:<Step>]`. `NN` appears in `implementation` only, and `part` in `audit` only: `tests`, `conventions` or `fixes`, for the topic `audit-<part>`. `Step` appears in `pre-plan`, `plan`, `implementation` and `audit`, and in `handover` while the update runs. Examples: `brief`, `pre-plan:Review`, `plan:Answer`, `implementation:03:Draft`, `audit:tests:Review`, `handover:Review`, `handover`, `done`, `abandoned`.
 
 ### Transitions
 The engine's rows hold. This skill adds:
@@ -143,62 +165,69 @@ The engine's rows hold. This skill adds:
 | state | reply | next state |
 |---|---|---|
 | `brief` | User signs the brief off | `pre-plan:Draft` |
-| `plan:Draft` | DONE, `light: phases split` | `implementation:01:Draft` |
 | `pre-plan:Review` / `pre-plan:Answer` | DONE, `approved` / `closed` | `plan:Draft` |
 | `plan:Review` / `plan:Answer` | DONE, `approved` / `closed` | `implementation:01:Draft` |
-| `implementation:NN:Review` / `implementation:NN:Answer` | DONE, `approved` / `closed` | `implementation:<NN+1>:Draft`; after the last phase, `handover:Draft` (`handover` when the update is skipped, see handover) |
+| `implementation:NN:Review` / `implementation:NN:Answer` | DONE, `approved` / `closed` | `implementation:<NN+1>:Draft`; after the last phase, `audit:tests:Draft` |
+| `audit:tests:Draft` | DONE, `nothing to change` | `audit:conventions:Draft` |
+| `audit:tests:Review` / `audit:tests:Answer` | DONE, `approved` / `closed` | `audit:conventions:Draft` |
+| `audit:conventions:Draft` | DONE, `nothing to change` | `audit:fixes:Draft` when `audit/findings.md` exists; otherwise `handover:Draft` (`handover` when the update is skipped, see handover) |
+| `audit:conventions:Review` / `audit:conventions:Answer` | DONE, `approved` / `closed` | `audit:fixes:Draft` when `audit/findings.md` exists; otherwise `handover:Draft` (`handover` when the update is skipped, see handover) |
+| `audit:fixes:Review` / `audit:fixes:Answer` | DONE, `approved` / `closed` | `handover:Draft` (`handover` when the update is skipped, see handover) |
 | `handover:Draft` | DONE, `nothing to update` | `handover` |
 | `handover:Review` / `handover:Answer` | DONE, `approved` / `closed` | `handover` |
 | `handover` | DONE | `handover` (User asks for another document, or closes the stage: `done`) |
-| `plan:<Step>`, `implementation:NN:<Step>` | BLOCKED with `reopen.md`, User rules to reopen | `brief` (see Reopening) |
-| `pre-plan:<Step>`, `plan:<Step>`, `implementation:NN:<Step>` | User rules to restart the attempt | `brief` (see Reopening) |
+| `plan:<Step>`, `implementation:NN:<Step>`, `audit:<part>:<Step>` | BLOCKED with `reopen.md`, User rules to reopen | `brief` (see Reopening) |
+| `pre-plan:<Step>`, `plan:<Step>`, `implementation:NN:<Step>`, `audit:<part>:<Step>` | User rules to restart the attempt | `brief` (see Reopening) |
 
-The last phase is the highest `NN` in `plan/`. Listing that folder is the one listing the Arbiter needs.
+The last phase is the highest `NN` in `plan/`. Besides listing that folder, the Arbiter looks at the disk only to check whether `audit/findings.md` exists and, on the way to handover, whether the project has a knowledge base or a project skill (see handover).
 
 ### What the Arbiter does on a transition
-* **Landed work.** When the new state is `implementation:01:Draft`, or a reply closed a phase, it appends the line to `landed.md`.
-* **Fresh sessions.** With **Sessions:** `fresh`, a new phase spawns a new Coder and a new Code Reviewer. With `continue`, only the attempt's first phase does, and later phases reach the same pair by its handles. A reopen spawns a new Architect and a new Architecture Reviewer, and the new attempt's first phase a new Coder and Code Reviewer. `handover:Draft` spawns a new Handover Writer, and the first `handover:Review` a new Architecture Reviewer.
+* **Landed work.** When the new state is `implementation:01:Draft`, or a reply closed a phase or an audit topic, it appends the line to `landed.md`. A topic that ended on `nothing to change` gets none.
+* **Fresh sessions.** With **Sessions:** `fresh`, a new phase spawns a new Coder and a new Code Reviewer. With `continue`, only the attempt's first phase does, and later phases reach the same pair by its handles. A reopen spawns a new Architect and a new Architecture Reviewer, and the new attempt's first phase a new Coder and Code Reviewer. Each audit topic spawns new sessions for its roles: its auditor or Coder on Draft, its reviewer on the first Review. `handover:Draft` spawns a new Handover Writer, and the first `handover:Review` a new Architecture Reviewer.
 * **The writer's tokens.** `handover:Draft` and `handover:Answer` may run `kb.py write`, so their replies get the engine's `KB writer` row (engine: stats.md).
-* **Commit points.** When brief, pre-plan and plan end, when each phase ends, on a reopen after the move to `attempts/`, when the brief is amended, when the update closes, and when handover ends.
+* **Commit points.** When brief, pre-plan and plan end, when each phase and each audit topic ends, on a reopen after the move to `attempts/`, when the brief is amended, when the update closes, and when handover ends.
 
 ## Who reads and writes what
 R = reads, W = writes (and reads). A role reads nothing in the spec that this table does not give it.
 
-| artifact | Arbiter | Architect | Arch. Reviewer | Coder | Code Reviewer | Handover Writer |
-|---|---|---|---|---|---|---|
-| `current-state.txt`, `roster.md`, `99-user.md` | W | R | R | R | R | R |
-| `stats.md` | W | | | | | |
-| `landed.md` | W | R, after a reopen | | | | R, first line |
-| `pre-plan/00-brief.md` (User writes) | W the template and a draft the User asks for (engine: Starting a spec); R at sign-off; W an amendment | R | R | | | |
-| `pre-plan/01-research.md` | | W | R | | | |
-| `pre-plan/02-reviewer-research.md` | | R | W | | | |
-| `pre-plan/NN-draft.md` | | W | R | | | |
-| `plan/plan.md` | | W | R | R | R | R |
-| `plan/research.md` | | W | R | | | |
-| `plan/phase-NN.md` | lists | W | R | R, own phase | R, own phase | |
-| `review/pre-plan/`, `review/plan/` | | W request, answers | W reviews | | | |
-| `review/phase-NN/` | | | | W request, answers | W reviews | |
-| `review/handover/` | | | W reviews | | | W request, answers |
-| `handover/NN-request.md` | W | | | | | R, when sent one |
-| `reopen.md` | moves; writes on a restart the User rules | W | W | W | W | |
-| `question.md` | moves into a ruling | W | | W | | W |
-| `advice/` | W | | | | | |
-| `attempts/NN/plan/plan.md`, `attempts/NN/reopen.md` | moves | R | R | | | |
-| `attempts/NN/pre-plan/*research.md`, `attempts/NN/plan/research.md` | | R, as a source | R, as a source | | | |
-| `fondue/kb/` (project, engine: Knowledge base) | | R | R | R | R | W |
+| artifact | Arbiter | Architect | Arch. Reviewer | Coder | Code Reviewer | Tests / Conventions Auditor | Handover Writer |
+|---|---|---|---|---|---|---|---|
+| `current-state.txt`, `roster.md`, `99-user.md` | W | R | R | R | R | R | R |
+| `stats.md` | W | | | | | | |
+| `landed.md` | W | R, after a reopen | | | | R, first line | R, first line |
+| `pre-plan/00-brief.md` (User writes) | W the template and a draft the User asks for (engine: Starting a spec); R at sign-off; W an amendment | R | R | | | | |
+| `pre-plan/01-research.md` | | W | R | | | | |
+| `pre-plan/02-reviewer-research.md` | | R | W | | | | |
+| `pre-plan/NN-draft.md` | | W | R | | | | |
+| `plan/plan.md` | | W | R | R | R | R | R |
+| `plan/research.md` | | W | R | | | | |
+| `plan/phase-NN.md` | lists | W | R | R, own phase; all in `audit-fixes` and when reviewing a lens topic | R, own phase; all in `audit-fixes` | R | |
+| `review/pre-plan/`, `review/plan/` | | W request, answers | W reviews | | | | |
+| `review/phase-NN/`, `review/audit-fixes/` | | | | W request, answers | W reviews | | |
+| `review/audit-tests/`, `review/audit-conventions/` | | | | W reviews | | W request, answers, own lens topic | |
+| `audit/findings.md` | checks it exists | | | R, in `audit-fixes` and when reviewing a lens topic | R, in `audit-fixes` | W, appends | |
+| `review/handover/` | | | W reviews | | | | W request, answers |
+| `handover/NN-request.md` | W | | | | | | R, when sent one |
+| `reopen.md` | moves; writes on a restart the User rules | W | W | W | W | W | |
+| `question.md` | moves into a ruling | W | | W | | W | W |
+| `advice/` | W | | | | | | |
+| `attempts/NN/plan/plan.md`, `attempts/NN/reopen.md` | moves | R | R | | | | |
+| `attempts/NN/pre-plan/*research.md`, `attempts/NN/plan/research.md` | | R, as a source | R, as a source | | | | |
+| `fondue/kb/` (project, engine: Knowledge base) | | R | R | R | R | R | W |
 
 When the User asks, the Arbiter reads anything (engine: Roles every process has), and in handover it reads whatever the request needs. A Handover Writer sent a request reads it and what it names. The User reads and may write anything, including `99-user.md` directly.
 
 ## Artifacts
 
 ### roster.md
-As the engine says, with one more line under **Skill:**, `**Sessions:** fresh | continue`: whether a Coder and a Code Reviewer live for one phase or for every phase of an attempt (see implementation). The Arbiter asks the User for it with the rest of the roster; `fresh` is the default. The default roster runs every role at effort `high`, on Opus, except the Architect, which runs on Fable. The Handover Writer's row is in every roster, because the update at handover always runs. The reasons for them are in `design-notes.md` next to this skill. Only the User reads that file, when choosing a roster.
+As the engine says, with one more line under **Skill:**, `**Sessions:** fresh | continue`: whether a Coder and a Code Reviewer live for one phase or for every phase of an attempt (see implementation). The Arbiter asks the User for it with the rest of the roster; `fresh` is the default. The default roster runs every role at effort `high`, on Opus, except the Architect, which runs on Fable. The reasons for the default roster are in `design-notes.md` next to this skill. Only the User reads that file, when choosing a roster. The rows of the Tests Auditor, the Conventions Auditor and the Handover Writer are in every roster, because the audit and the update at handover always run. The audit's Coder and Code Reviewer come from the Coder and Code Reviewer rows. **A continued spec whose roster lacks a row this skill requires**, e.g. one whose roster has no auditor rows, gets the engine's roster step for that role (engine: Starting a spec) before the role's first turn: the Arbiter asks the User for its agent, model and effort.
 
 ### landed.md
-Owned by the Arbiter, and appended when the implementation of an attempt starts and whenever a phase closes. It records where each phase's code ends, so a reopened spec can tell which commits belong to which phase. It works whether or not the spec folder is committed.
+Owned by the Arbiter, and appended when the implementation of an attempt starts and whenever a phase or an audit topic closes; a topic that ended on `nothing to change` gets no line. It records where the code of each phase and each audit topic ends, so a reopened spec can tell which commits belong to which phase or topic. It works whether or not the spec folder is committed.
 ```
 attempt-<NN> implementation starts at <sha>
 attempt-<NN> phase-<NN> closed at <sha>
+attempt-<NN> audit-<part> closed at <sha>
 ```
 `<sha>` is `git rev-parse HEAD` when the line is written. It is a command the Arbiter runs, not an artifact it reads. `attempt-<NN>` is the number the live attempt would take in `attempts/`: one more than the highest there, or `01` if there is none.
 
@@ -206,10 +235,9 @@ attempt-<NN> phase-<NN> closed at <sha>
 Written and signed off by the User; the Arbiter writes its template, and a draft when the User asks (engine: Starting a spec). It states what the spec must deliver, everything known that matters, and what is still open. A good brief leaves the Architect knowing the goal and what research the approach needs. Its open questions are the ones whose answer shapes the approach. A technical question may be listed too, marked `(technical)`, and the draft passes it to the phase that answers it.
 ```
 # <spec title>
-Mode: full | light
 
 ## Goal
-<what exists when the spec is done>
+<what exists when the spec is done, and any property it must keep>
 
 ## Context
 <everything known that matters: code areas, constraints, prior decisions>
@@ -221,7 +249,7 @@ Mode: full | light
 ### pre-plan/01-research.md and 02-reviewer-research.md
 Owned by Architect and Architecture Reviewer respectively. Each reads the other's. Every entry is under the engine's Research rule.
 
-Pre-plan research covers what the approach, the phase split or a gate rests on, e.g. whether a library provides a capability at all. Which API it offers, and how it is configured, is research for plan.
+Pre-plan research covers what the approach, the phase split, a gate or an invariant rests on, e.g. whether a library provides a capability at all. Which API it offers, and how it is configured, is research for plan.
 
 `01-research.md` opens with **Existing code**: for each capability the approach needs, what the code already has that does it or comes close, as a FACT anchored in the code, and whether the approach **reuses** it, **reshapes** it, or adds something **new**. A card or the index is how you find it, never the anchor. Each `new` says why the closest existing code is not reshaped instead. When nothing comes close, the entry says where you looked.
 
@@ -230,11 +258,13 @@ Pre-plan research covers what the approach, the phase split or a gate rests on, 
 ### pre-plan/NN-draft.md
 The high-level delivery plan, owned by the Architect, numbered from `03` up. It states the approach, the decisions that shape it, each with the alternatives it rejects, and the phases. What it reuses, reshapes and adds, from Existing code, are decisions that shape it. Each phase states what it delivers and the gate it must pass. The draft answers every open question of the brief that shapes the approach, and names the phase that will answer each of the others.
 
-What goes in the draft is decided by one test: **would getting this wrong change the approach, the phase split or a gate?** If so, it belongs in the draft. If not, it is a technical decision and belongs to plan: a config value, a label name, a class, an API call, a task list. Why: every technical decision a draft carries can be wrong and costs a whole new draft to fix. It also crowds the review, so findings about the frame arrive rounds late.
+**Invariants.** The draft states the invariants the approach guarantees: every one the brief names, the ones the goal cannot be met without, and, for a change to existing behaviour, the ones that keep what it must not break, such as "requests that succeed today still succeed, below the configured limits". Each is one checkable sentence, such as "a refused request holds no worker thread, under any load", with the conditions it holds under, the decisions it rests on, and the gate that shows it holds. A gate that runs only the load or the inputs the goal describes shows the goal, not an invariant: an invariant about hostile callers or failing components needs a gate that brings them. When an invariant rests on a mechanism the spec does not control, the claim about it is a RESULT run against the part of the mechanism that decides it, not against a helper next to it. For example, which identity a request is charged to is decided where the request is authenticated, not in a parser of the credentials it carries. A spec that changes no behaviour, such as a rename, states that as its one invariant. Why: a property nobody wrote down cannot be attacked, so a review without invariants falls back on looking for anything wrong, which never ends.
+
+What goes in the draft is decided by one test: **would getting this wrong change the approach, the phase split, a gate or an invariant?** If so, it belongs in the draft. So does a decision an invariant rests on, technical or not. If not, it is a technical decision and belongs to plan: a config value, a label name, a class, an API call, a task list. Why: every technical decision a draft carries can be wrong and costs a whole new draft to fix. It also crowds the review, so findings about the frame arrive rounds late.
 
 A draft in a reopened spec carries two more sections:
 * **Earlier attempts** - for each one: its approach in a few lines (for an attempt with no `plan.md`, what its `reopen.md` names), why it ended, the assumptions its `reopen.md` shows broken or the User's ruling rules out, if any, and why this approach does not rest on them.
-* **Landed work** - every commit the spec has landed so far, by phase and attempt, including a phase that never closed: keep, amend or revert, each with its reason. An amend or a revert is a phase of this plan like any other. The phase boundaries are in `landed.md`: a phase's commits are those after the line before it, up to its own sha. The commits after the last line belong to the phase that never closed.
+* **Landed work** - every commit the spec has landed so far, by phase or audit topic and by attempt, including a phase or topic that never closed: keep, amend or revert, each with its reason. An amend or a revert is a phase of this plan like any other. The boundaries are in `landed.md`: the commits of a phase or topic are those after the line before it, up to its own sha. The commits after the last line belong to the phase or topic that never closed.
 
 ### plan/research.md
 Owned by the Architect, under the engine's Research rule. It covers the mechanisms that the technical decisions in the phase files rest on. The Architecture Reviewer reads it, and may re-run a RESULT as the anchor of a finding.
@@ -251,12 +281,14 @@ A technical decision is a choice that fixes a contract, is visible outside the p
 
 A phase that adds to a module names the extension point it uses, verified in the code, when the module has one.
 
+A task whose gate shows an invariant of `plan.md` names that invariant, so the Coder builds the gate to fail when it breaks.
+
 A phase document may list skills for its phase on top of those in `roster.md`.
 
 ### review/<topic>/
-As the engine says. The subject of `pre-plan` is a draft file, of `plan` a list of phase files, of `phase-NN` and `handover` a commit range. `phase-NN` is a code topic: its request and answers carry `Build:` and `Gates:`. `handover` changes documents only, so it runs no build. Its request carries two more fields, and its answers repeat `KB:`:
+As the engine says. The subject of `pre-plan` is a draft file, of `plan` a list of phase files, of `phase-NN`, the audit topics and `handover` a commit range, and, when an audit topic's author committed nothing, its request file. `phase-NN` and the audit topics are code topics: their requests and answers carry `Build:` and `Gates:`. The request of a lens topic also carries the `Since:` field below, and the mutants and commit breaches the audit section asks for (see audit). `handover` changes documents only, so it runs no build. Its request carries two more fields, and its answers repeat `KB:`:
 ```
-- **Since:** <sha> - the spec's code is git diff <sha>..<the commit before the subject>
+- **Since:** <sha> - the spec's code is git diff <sha>..<the commit before the subject, or HEAD when the subject is a file>
 - **KB:** kb.py status --since <sha> - clean        (only when the project has a knowledge base)
 ```
 
@@ -266,9 +298,11 @@ Written by the Arbiter in the User's own words: what to write, what it is for, a
 ## Roles
 The engine's User and Arbiter, and:
 * **Architect** - author of the research, drafts and plan. Lives across pre-plan and plan of one attempt.
-* **Architecture Reviewer** - reviews drafts and phase files for whether they meet the brief, answer its questions, and are deliverable and testable. Lives across pre-plan and plan of one attempt. A new session reviews the update at handover.
-* **Coder** - implements the phases. Lives for one phase, or with **Sessions:** `continue` for every phase of one attempt.
-* **Code Reviewer** - reviews the phases. Lives as long as the Coder.
+* **Architecture Reviewer** - reviews drafts and phase files for whether they meet the brief, answer its questions, state invariants that hold under every concrete scenario, within their stated conditions, that the reviewer can build, and are deliverable and testable. Lives across pre-plan and plan of one attempt. A new session reviews the update at handover.
+* **Coder** - implements the phases, reviews the auditors' changes, and fixes what `audit/findings.md` lists. Lives for one phase, or with **Sessions:** `continue` for every phase of one attempt. A new session takes each audit topic.
+* **Code Reviewer** - reviews the phases and `audit-fixes`. Lives as long as the Coder.
+* **Tests Auditor** - after the last phase, finds the behaviours of the spec's code that can break with no test failing, and adds or fixes the tests, changing test code only. Lives for its topic.
+* **Conventions Auditor** - after the Tests Auditor, brings the spec's code in line with the project's rules, making only changes that keep behaviour. Lives for its topic.
 * **Handover Writer** - brings the knowledge base and the project skills up to date with the spec, at handover. Lives for the rest of the spec.
 
 The User also decides any further handover document, and the Arbiter writes it unless the User names a Handover Writer.
@@ -279,24 +313,36 @@ The engine's A turn, with this table:
 | state | role | folder | the turn |
 |---|---|---|---|
 | `pre-plan:Draft` | Architect | `pre-plan/` | read the knowledge base, research the approach and Existing code, write `03-draft.md`, open `review/pre-plan/`; after a reopen, read every earlier attempt's `plan.md` and `reopen.md` first |
-| `pre-plan:Review` | Architecture Reviewer | `review/pre-plan/` | review the draft the newest file names (first turn: see pre-plan) |
+| `pre-plan:Review` | Architecture Reviewer | `review/pre-plan/` | review the draft the newest file names, attacking each invariant (first turn: see pre-plan) |
 | `pre-plan:Answer` | Architect | `review/pre-plan/` | answer every finding of the newest review; a new draft file if any fix was accepted |
-| `plan:Draft` | Architect | `review/pre-plan/` | copy the final draft the newest file names to `plan.md`, research the technical decisions, write the phase files, open `review/plan/`; in light mode split verbatim and open no review |
-| `plan:Review` | Architecture Reviewer | `review/plan/` | review the phase files the newest file names, against `plan.md` and `plan/research.md` |
+| `plan:Draft` | Architect | `review/pre-plan/` | copy the final draft the newest file names to `plan.md`, research the technical decisions, write the phase files, open `review/plan/` |
+| `plan:Review` | Architecture Reviewer | `review/plan/` | review the phase files the newest file names, against `plan.md` and `plan/research.md`, attacking each invariant through the technical decisions |
 | `plan:Answer` | Architect | `review/plan/` | answer every finding of the newest review, editing phase files and `plan/research.md` in place |
 | `implementation:NN:Draft` | Coder (new for phase NN) | `plan/` | implement `phase-NN.md`, commit, build green, open `review/phase-NN/` |
 | `implementation:NN:Review` | Code Reviewer (new for phase NN) | `review/phase-NN/` | review the commit range the newest file names; never run the build or the test suite |
 | `implementation:NN:Answer` | Coder | `review/phase-NN/` | fix what was accepted, commit, build green, answer |
+| `audit:tests:Draft` | Tests Auditor (new) | `plan/` | mutate the spec's code, add or fix the tests that kill the survivors, append what it may not change to `audit/findings.md`, commit, build green, open `review/audit-tests/` (see audit) |
+| `audit:tests:Review` | Coder (new for the first review) | `review/audit-tests/` | review the subject the newest file names; may run the build, apply any mutation, write and run throwaway tests, and check out the commit before the subject, then leave the branch checked out at the commit it found, with a clean tree |
+| `audit:tests:Answer` | Tests Auditor | `review/audit-tests/` | fix what was accepted or move it to `audit/findings.md`, commit, build green, answer |
+| `audit:conventions:Draft` | Conventions Auditor (new) | `plan/` | bring the spec's code in line with the project's rules, append what it may not change to `audit/findings.md`, commit, build green, open `review/audit-conventions/` (see audit) |
+| `audit:conventions:Review` | Coder (new for the first review) | `review/audit-conventions/` | review the subject the newest file names; may run the build and check out the commit before the subject, then leave the branch checked out at the commit it found, with a clean tree |
+| `audit:conventions:Answer` | Conventions Auditor | `review/audit-conventions/` | fix what was accepted or move it to `audit/findings.md`, commit, build green, answer |
+| `audit:fixes:Draft` | Coder (new) | `audit/` | fix, challenge or decline each audit finding in `findings.md`, asking the User any that is a question, commit, build green, open `review/audit-fixes/` |
+| `audit:fixes:Review` | Code Reviewer (new for the first review) | `review/audit-fixes/` | review the subject the newest file names, against `audit/findings.md`; never run the build or the test suite |
+| `audit:fixes:Answer` | Coder | `review/audit-fixes/` | fix what was accepted, commit, build green, answer |
 | `handover:Draft` | Handover Writer (new) | `plan/` | update the knowledge base and the project skills, commit, open `review/handover/` (see handover) |
 | `handover:Review` | Architecture Reviewer (new for the first review) | `review/handover/` | review the commit range the newest file names, against `plan.md` and the code |
 | `handover:Answer` | Handover Writer | `review/handover/` | fix what was accepted, commit, answer |
 | `handover` | the Handover Writer the User names; otherwise the Arbiter writes it, with no turn (see handover) | `handover/` | write what the newest request asks, where it says |
 
-Reply keywords for turns with no verdict, beyond the engine's `request opened`: `light: phases split`, `nothing to update` and `handover written`.
+Reply keywords for turns with no verdict, beyond the engine's `request opened`: `nothing to change`, `nothing to update` and `handover written`.
 
 ## What counts as a Blocker
-* On `pre-plan`, a finding is a Blocker only if it is wrong about **the approach, the phase split or a gate**. A finding about a technical decision is a Nit at most, however wrong the decision: it belongs to plan, and the Architect carries it there. So is a technical decision the draft should not carry. In a reopened spec, a draft that rests on an assumption an earlier `reopen.md` shows broken or rules out is a Blocker, and so is landed work the draft does not account for. A draft that adds what the code already has, or builds around code it could reshape, without saying why reshaping is worse, is wrong about the approach. So is an Existing code entry that misses code the reviewer can anchor.
-* On `plan`, a finding is a Blocker when a technical decision is wrong, rests on a mechanism with no RESULT, or is left for the Coder although it fixes a contract or crosses phases; when a task's gate cannot fail; or when the phase files do not deliver what `plan.md` says. A wrong detail the Coder's first build or grep would expose (a count, a path) is a Nit at most.
-* On `phase-NN`, a finding is a Blocker when the change is wrong, introduces a problem, breaks the project's rules, or leaves out what the phase file asks for, a test or a case included. Code that rebuilds what the code already has, where the phase file does not ask for it, is a problem it introduces.
+* On `pre-plan`, a finding is a Blocker only if it is wrong about **the approach, the phase split, a gate or an invariant**. A finding about a technical decision is a Nit at most, however wrong the decision: it belongs to plan, and the Architect carries it there. So is a technical decision the draft should not carry. The exception is a broken invariant: **a concrete scenario, within the conditions an invariant states, under which the approach or any decision the draft carries breaks it is a Blocker**, technical decisions included, because the decision is then wrong about the approach. It is answered by a decision that keeps the invariant: never by taking the decision out of the draft, and never by narrowing the invariant's conditions unless the User rules so. A decision an invariant rests on that the draft leaves to plan, or passes on as `(technical)`, is a Blocker too. An invariant the draft does not state is a Blocker when the brief names it, when the goal cannot be met without it, or when it keeps existing behaviour the change must not break; so is an invariant whose conditions leave out a case the brief or the goal needs, and an invariant no gate can show. In a reopened spec, a draft that rests on an assumption an earlier `reopen.md` shows broken or rules out is a Blocker, and so is landed work the draft does not account for. A draft that adds what the code already has, or builds around code it could reshape, without saying why reshaping is worse, is wrong about the approach. So is an Existing code entry that misses code the reviewer can anchor.
+* On `plan`, a finding is a Blocker when a technical decision is wrong, breaks an invariant of `plan.md` under a concrete scenario within its stated conditions, rests on a mechanism with no RESULT, or is left for the Coder although it fixes a contract or crosses phases; when a task's gate cannot fail; or when the phase files do not deliver what `plan.md` says. A wrong detail the Coder's first build or grep would expose (a count, a path) is a Nit at most.
+* On `phase-NN`, a finding is a Blocker when the change is wrong, breaks an invariant of `plan.md` under a concrete scenario within its stated conditions, introduces a problem, breaks a project rule on structure, such as layering, boundaries or dependencies, or leaves out what the phase file asks for, a test or a case included. Code that rebuilds what the code already has, where the phase file does not ask for it, is a problem it introduces.
+* On `audit-tests`, a finding is a Blocker when a changed test pins behaviour that `plan.md` or the code's contract says is wrong; when a mutant the request gives as a RESULT does not survive without the change or is not killed with it; when the change touches anything but test code, or a test a phase file fixes; when a test the auditor adds can pass or fail by timing alone; when a mutant the auditor calls equivalent is killed by a test the reviewer shows as a RESULT; when a survivor the auditor sent to `audit/findings.md` can be killed by test code alone; or when the reviewer shows, as a RESULT, a surviving mutant of the spec's code that neither the request nor `audit/findings.md` accounts for. The reviewer need not search for surviving mutants.
+* On `audit-conventions`, a finding is a Blocker when a change alters behaviour, a test's expectation included; when it applies a rule the project does not have, or reads one wrongly; when it changes a decision a phase file fixes; or when it rewrites history.
+* On `audit-fixes`, a finding is a Blocker as on `phase-NN`, with `audit/findings.md` in place of the phase file and all of the project's rules in place of its rules on structure. A challenged or declined audit finding is a Blocker when it holds and is a Blocker by these rules, whatever severity its entry records; one that is a Nit by them never is.
 * On `handover`, a finding is a Blocker when a card or a skill says something the code contradicts; when something the spec changed is missing from them, in what a module offers, its extension points or its boundaries, or in what a skill describes; when `kb.py status --since <sha>` is not `clean`; or when a card explains why, or a skill carries history. The reviewer may run `kb.py status`, which spends no tokens.
-* The Architecture Reviewer judges against the brief, the research and the plan, and at handover against `plan.md` and the code. The Code Reviewer judges against `plan.md`, the phase file, the code and the project's rules, and never opens pre-plan or `plan/research.md`.
+* The Architecture Reviewer judges against the brief, the research and the plan, and at handover against `plan.md` and the code. The Code Reviewer judges against `plan.md`, the phase file or `audit/findings.md`, the code and the project's rules on structure (all its rules in `audit-fixes`), and never opens pre-plan or `plan/research.md`. The Coder reviewing a lens topic judges against `plan.md`, the phase files, `audit/findings.md`, the code and the project's rules.
