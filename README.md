@@ -102,6 +102,10 @@ Earlier specs ran on earlier versions of the protocol. **Issues and war stories 
 - **The `claude` CLI** on the `PATH`, for the knowledge base: each card is one `claude -p` call.
 - **Optional:** the command-line tool of any other agent you want in the team, installed and signed
   in, e.g. OpenAI's `codex`.
+- **Optional:** a language server for each of your project's languages, through Claude Code's
+  code-intelligence plugins, e.g. `jdtls-lsp` or `typescript-lsp`, with the server binary on your
+  `PATH`. Every role then finds definitions, references and implementations by symbol, not by
+  text, and falls back to text search where no server runs.
 - **Optional:** a mutation-testing tool for your language, e.g. PIT for Java. The Tests Auditor uses
   it when your project has one, and mutates by hand when it doesn't.
 

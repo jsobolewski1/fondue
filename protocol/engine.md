@@ -203,6 +203,11 @@ A project may have a knowledge base at `fondue/kb/`, made by the `kb-init` skill
 
 Who writes it, and how, is in `protocol/kb.md` next to this file. A role that only reads it does not read that file. Its tool, `kb.py`, is `python3 <plugin root>/protocol/kb/kb.py`, run from the project root; from this file it is `kb/kb.py`. `kb.py status` spends no tokens.
 
+## Code navigation
+Every session that reads code, each role and the Arbiter researching for the User, finds out at its first turn whether it has a language server for the languages its work touches, and uses it to move through the code: a symbol's definition, its references and callers, the implementations of an interface, the symbols of a file or of the workspace. On Claude it is the `LSP` tool. That tool works only when a code-intelligence plugin for the language is installed and its server binary is on the `PATH`, and it answers with an error for a file no server handles. A session on another agent uses its agent's own, if it has one.
+
+Text search stays for what is not a symbol: strings, config keys, file names, comments, and files no server handles. It is also the fallback when there is no server, or when the server errors or is still indexing. A claim that something has no other caller, or is unused, says which of the two found it. Why: text search finds a spelling, not a symbol. It misses a caller that reaches the code through an interface, an override or an import alias, and it counts every same-named thing in other modules as a hit. The Existing code research, an impact claim and a reviewer's "this is unused" all rest on finding every use.
+
 ## Code turns
 A role that writes code commits it during its turns and never stages `fondue/`, except `fondue/kb/` (Knowledge base). It runs the full build with tests at the end of **every** turn that changed code, Draft and Answer alike. A turn is not DONE until the build is green with all tests passing. An answer that only challenges or declines changes no code and reports the last green build.
 
