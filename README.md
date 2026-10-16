@@ -112,7 +112,7 @@ Earlier specs ran on earlier versions of the protocol. **Issues and war stories 
 ## 🏗️ How spec works
 
 <p align="center">
-  <img src="assets/spec-workflow.png" alt="brief (you), then pre-plan (approach, reviewed), plan (technical design, reviewed), implementation (each phase reviewed), handover, done. If the approach fails in plan or implementation, a new attempt starts from a new brief." width="820">
+  <img src="assets/spec-workflow.png" alt="brief (you), then pre-plan (approach, reviewed), plan (technical design, reviewed), implementation (each phase reviewed), audit (tests, then conventions, each reviewed), handover, done. If the approach fails in plan, implementation or the audit, a new attempt starts from a new brief." width="820">
 </p>
 
 | Role | What they do | Lives for |
