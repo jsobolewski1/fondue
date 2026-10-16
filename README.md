@@ -56,6 +56,14 @@ happens between them.**
   session, and each can run on Claude, Codex, or any agent you can drive from a shell.
 - 🧭 **The reviewer designs before reading.** They write down how *they* would build it before
   opening the draft, so they question the frame, not just its details.
+- 🛡️ **Guarantees get attacked before any code exists.** The approach states its **invariants**:
+  what it guarantees, and under which conditions. The reviewer tries to break each one with a
+  concrete scenario: a hostile caller, a load spike, a slow dependency. A broken invariant blocks
+  the draft, even when the flaw hides in a detail that would otherwise wait for the plan.
+- 🧬 **Tests that can actually fail.** After the last phase, an auditor mutates everything the spec
+  changed and adds a test for every mutant that survived. A second auditor brings the code in line
+  with your project's rules. Each writes its own changes, and a fresh Coder checks them by running
+  them.
 - 🔍 **Evidence, or it isn't a finding.** Every finding carries a `file:line` or a command and its
   output. Claims about libraries and tools are **run, not read**.
 - ⚖️ **A neutral Arbiter.** The session you talk to runs the process and never rules on the work, so
@@ -82,6 +90,7 @@ fondue is young. Here's what it has actually run:
 | ✅ **Mixed vendors** | Codex has held the Architecture Reviewer seat in real specs, through an earlier setup |
 | ✅ **First-run agent setup** | Dry-run against Codex |
 | ✅ **Knowledge base** | Piloted on a 33-module Java project, then on a C project, a shell project, a Vue/JavaScript web part, a public TypeScript project and fondue itself; not yet run inside a spec |
+| 🆕 **Invariants and the audit** | New in 0.7, shaped by a run of five specs on one hard fix; not yet run inside a spec |
 
 Earlier specs ran on earlier versions of the protocol. **Issues and war stories are welcome.**
 
@@ -93,6 +102,8 @@ Earlier specs ran on earlier versions of the protocol. **Issues and war stories 
 - **The `claude` CLI** on the `PATH`, for the knowledge base: each card is one `claude -p` call.
 - **Optional:** the command-line tool of any other agent you want in the team, installed and signed
   in, e.g. OpenAI's `codex`.
+- **Optional:** a mutation-testing tool for your language, e.g. PIT for Java. The Tests Auditor uses
+  it when your project has one, and mutates by hand when it doesn't.
 
 ## 🏗️ How spec works
 
@@ -113,27 +124,30 @@ Earlier specs ran on earlier versions of the protocol. **Issues and war stories 
 | **Handover Writer** | Brings the knowledge base and your project skills up to date with what the spec changed | handover |
 
 - **Two planning stages.** *Pre-plan* settles the **approach**: the decisions that shape it, the
-  alternatives rejected, the **invariants** it guarantees, and the phases with their gates. The
-  reviewer writes their own invariants before reading the draft, then tries to break the draft's
-  with concrete scenarios; an invariant a scenario breaks blocks the draft. *Plan* settles the **technical
-  decisions** and tasks, each with how it is tested. If the approach is rejected, only a short draft
-  is thrown away, never a set of detailed phase files.
+  alternatives rejected, the **invariants** it guarantees, and the phases with their gates. *Plan*
+  settles the **technical decisions** and tasks, each with how it is tested. If the approach is
+  rejected, only a short draft is thrown away, never a set of detailed phase files.
+- **Invariants are attacked, not just read.** The reviewer writes their own invariants before
+  opening the draft, then tries to break the draft's with concrete scenarios. An invariant a
+  scenario breaks blocks the draft, and the fix must keep it: dropping the decision or narrowing
+  the invariant doesn't count. A guarantee you didn't ask for comes to you as a question.
 - **Fresh sessions per phase.** Each phase gets a new Coder and a new Code Reviewer, so no session
   drags a long history along. For a spec with small phases, `Sessions: continue` in the roster keeps
   the pair through every phase instead. It's an experiment, and `protocol/stats-total.py` gives each
   spec one figure to compare.
-- **Reopening.** If the approach breaks in plan, halfway through implementation or in the audit, the failed attempt
-  is set aside, and you sign a new brief. A fresh Architect and Reviewer then read **what the old
-  plan was and what broke it**. Work already committed is kept, amended or reverted, phase by phase.
-- **Abandoning.** A spec that won't deliver can be stopped, and its archive says so.
 - **The audit checks the whole range.** After the last phase, two auditors read everything the spec
   changed. The Tests Auditor mutates it and adds a test for each mutant no test caught; the
   Conventions Auditor fixes what breaks your project's rules. Each makes its own changes, and a new
-  Coder reviews them. What an auditor may not change, such as a bug in production code, goes to a
-  Coder and a Code Reviewer, as a phase does.
+  Coder reviews them, re-running mutants where it doubts a claim. What an auditor may not change,
+  such as a bug in production code, goes to a Coder and a Code Reviewer, as a phase does.
 - **Handover updates the docs.** After the audit, the Handover Writer rewrites the knowledge
   base cards and the project skills that the spec made wrong, and a reviewer checks them against the
   code. Docs that steer every later spec don't get to drift.
+- **Reopening.** If the approach breaks in plan, in implementation or in the audit, the failed
+  attempt is set aside, and you sign a new brief. A fresh Architect and Reviewer then read **what
+  the old plan was and what broke it**. Work already committed is kept, amended or reverted, phase
+  by phase.
+- **Abandoning.** A spec that won't deliver can be stopped, and its archive says so.
 
 ## 🐞 How hunt works
 
@@ -237,11 +251,13 @@ default beyond what the deployment needs" (phase-02.md, Essential knowledge 9).
 Everything is **plain files in your repository**, which you can read, diff and review:
 
 ```
-fondue/specs/022-<name>/        (a real spec, at done)
+fondue/specs/022-<name>/        (a real spec, at done, with the audit 0.7 adds)
   roster.md  99-user.md  stats.md  current-state.txt  landed.md
   pre-plan/  00-brief.md  01-research.md  02-reviewer-research.md  03-draft.md … 05-draft.md
   plan/      plan.md  research.md  phase-01.md … phase-07.md
-  review/    pre-plan/  plan/  phase-01/ … phase-07/     00-request.md  01-review.md  02-answer.md …
+  audit/     findings.md                    (only when an auditor found what it may not change)
+  review/    pre-plan/  plan/  phase-01/ … phase-07/  audit-tests/  audit-conventions/
+             00-request.md  01-review.md  02-answer.md …
   handover/
 ```
 
@@ -268,8 +284,10 @@ Most of the volume is cache reads, which bill at a fraction of fresh input. **In
 folds output, cache writes and cache reads into one figure at the input price, so specs can be
 compared. It compares only loosely across rosters: 022's Code Reviewer was Claude at `xhigh`, and
 021 seated Codex as both reviewers. Both ran before the 0.4 handover update, which adds a writer
-turn, a review, and about $0.1 per knowledge-base card. Every turn is logged in `stats.md`, and
-`protocol/stats-total.py <stats.md>` totals yours the same way.
+turn, a review, and about $0.1 per knowledge-base card, and before the 0.7 audit, which adds two
+auditor turns and their reviews, plus a fix phase when an auditor finds what it may not change.
+Every turn is logged in `stats.md`, and `protocol/stats-total.py <stats.md>` totals yours the same
+way.
 
 <details>
 <summary><b>How the process keeps cost down</b></summary>
@@ -281,6 +299,7 @@ turn, a review, and about $0.1 per knowledge-base card. Every turn is logged in 
 - reviews that contain only findings
 - fixes approved unseen when they can be stated exactly
 - a Code Reviewer that never reruns the build
+- an audit that runs once over the whole spec, not once per phase
 - technical detail kept out of the approach draft, so it takes fewer rounds
 
 </details>
